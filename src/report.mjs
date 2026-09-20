@@ -26,7 +26,9 @@
  *    it just never reaches the page.
  */
 
-import { spearman, partialSpearman, permutationP, powerReport, rank, residualise } from './stats.mjs';
+import {
+  spearman, partialSpearman, permutationP, powerReport, rank, residualise, benjaminiHochberg,
+} from './stats.mjs';
 
 /** Direction of merit. Packs must declare one per question. */
 export const HIGHER_IS_BETTER = 'higher_is_better';
@@ -62,11 +64,16 @@ export function bandEdges(values) {
 }
 
 export function bandFor(value, edges, direction) {
+  if (direction === NEUTRAL) return BANDS[2];
+  // A dimension with no spread cannot be banded: every quintile edge is equal,
+  // the strict comparison below never advances, and every post would be
+  // labelled "Poor" including one sitting exactly on the median. Constant is
+  // not bad, it is uninformative, so it reports as typical.
+  if (!edges.length || edges.every((e) => e === edges[0])) return BANDS[2];
   let i = 0;
   while (i < edges.length && value > edges[i]) i++;
   // i is now the quintile index 0..4 in ASCENDING value order.
-  const idx = direction === LOWER_IS_BETTER ? 4 - i : i;
-  return BANDS[direction === NEUTRAL ? 2 : idx];
+  return BANDS[direction === LOWER_IS_BETTER ? 4 - i : i];
 }
 
 /**
@@ -82,13 +89,16 @@ export function tercileComparison(items, valueOf, outcome) {
   const top = sorted.slice(-k);
   const mLow = median(bottom.map((i) => i[outcome]));
   const mHigh = median(top.map((i) => i[outcome]));
-  if (!mLow || !mHigh) return null;
+  // `0` is a legitimate median: poorly performing posts really do collect zero
+  // engagement. A falsy check here silently discarded the most damning
+  // comparisons, which is the opposite of what this tool is for.
+  if (mLow == null || mHigh == null) return null;
   return {
     n: withBoth.length,
     groupSize: k,
     lowMedian: mLow,
     highMedian: mHigh,
-    ratio: mHigh / mLow,
+    ratio: mLow === 0 ? (mHigh === 0 ? 1 : Infinity) : mHigh / mLow,
     betterAtTop: mHigh > mLow,
   };
 }
@@ -134,7 +144,7 @@ export const labelFor = (dim) => DIMENSION_LABELS[dim] ?? dim.replace(/_/g, ' ')
 export function comparisonSentence({ dimension, outcomeShort, cmp }) {
   const label = labelFor(dimension);
   const factor = cmp.ratio >= 1 ? cmp.ratio : 1 / cmp.ratio;
-  const size = factor >= 2 ? 'roughly double' : factor >= 1.5 ? 'about half again' : 'a modest amount';
+  const size = !Number.isFinite(factor) ? 'far' : factor >= 2 ? 'roughly double' : factor >= 1.5 ? 'about half again' : 'a modest amount';
   // Always phrase it as the winning side, so the sentence reads as advice.
   if (cmp.betterAtTop) {
     return `Your posts with the most ${label} got ${pct(cmp.highMedian)} ${outcomeShort}. ` +
@@ -223,6 +233,7 @@ export function buildReport({ items, ratings, pack, directions }) {
     if (power.verdict === 'descriptive') continue;
 
     const control = subset.map((i) => new Date(i.date).getTime());
+    const candidates = [];
     for (const d of dims) {
       const pairs = subset.map((i) => [byId.get(i.id)?.[d]?.value, i[outcome]]).filter(([a]) => a != null);
       if (pairs.length < 15) continue;
@@ -233,7 +244,19 @@ export function buildReport({ items, ratings, pack, directions }) {
       const resB = residualise(rank(b), rank(control.slice(0, pairs.length)));
       const p = permutationP(resA, resB);
       const tier = pack.questions[d].tier;
-      if (!(p < 0.05) || Number.isNaN(partial)) continue;
+      if (Number.isNaN(partial)) continue;
+      candidates.push({ d, p, partial, tier, meta, outcome, subset });
+    }
+
+    // False-discovery correction across every test run for this outcome, not
+    // just the ones that happened to look good. Without this the significance
+    // threshold is meaningless at 30 dimensions.
+    const q = benjaminiHochberg(candidates.map((c) => c.p));
+    candidates.forEach((c, i) => { c.q = q[i]; });
+
+    for (const c of candidates) {
+      const { d, p, partial, tier, meta, subset } = c;
+      if (!(c.q < 0.05)) continue;
 
       const cmp = tercileComparison(subset, (i) => byId.get(i.id)?.[d]?.value, outcome);
       if (!cmp) continue;
@@ -251,7 +274,7 @@ export function buildReport({ items, ratings, pack, directions }) {
         comparison: cmp,
         sentence: comparisonSentence({ dimension: d, outcomeShort: meta.short, cmp }),
         // kept for the methods appendix only; never shown on the main surface
-        _stats: { partialRho: partial, p, n: pairs.length },
+        _stats: { partialRho: partial, p, q: c.q, n: subset.length },
       });
       validatedByOutcome[outcome].push({ dimension: d, weight: Math.abs(partial) });
     }
