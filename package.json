@@ -1,0 +1,25 @@
+{
+  "name": "content-signal",
+  "version": "0.1.0",
+  "description": "Find out which qualities of your writing actually predict engagement - with pre-registered rubrics, calibrated model judgments, and statistics honest enough to tell you when your sample is too small to know.",
+  "keywords": [
+    "content-analytics", "linkedin-analytics", "writing-analysis", "engagement-analysis",
+    "creator-analytics", "social-media-analytics", "typesafe", "jev", "system-one",
+    "structured-outputs", "llm-evaluation", "rubric", "pre-registration",
+    "spearman", "statistical-power", "openrouter", "ai-gateway", "claude-skill", "agent-skill"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": { "content-signal": "./src/cli.mjs" },
+  "files": ["src", "skills", "docs", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "git+https://github.com/Kaos599/content-signal.git" },
+  "homepage": "https://github.com/Kaos599/content-signal#readme",
+  "bugs": { "url": "https://github.com/Kaos599/content-signal/issues" },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "ai": "^7.0.107"
+  }
+}
