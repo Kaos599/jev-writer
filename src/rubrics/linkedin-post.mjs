@@ -507,3 +507,44 @@ export const linkedinPostPack = {
 };
 
 export default linkedinPostPack;
+
+/**
+ * Direction of merit for every rated dimension.
+ *
+ * Required by the report layer. Without it a colour scale paints the worst
+ * posts green: a high `ai_generated_feel` is bad while a high
+ * `human_authorship_evidence` is good, and nothing in the question itself says
+ * which. `neutral` means the dimension is descriptive rather than better or
+ * worse - `technicality` is not a virtue, it is a choice about audience.
+ */
+export const directions = {
+  // attention
+  preview_earns_expansion: 'higher_is_better',
+  hook_strength: 'higher_is_better',
+  payoff_delivery: 'higher_is_better',
+  // craft
+  reading_ease: 'higher_is_better',
+  skimmability: 'higher_is_better',
+  technicality: 'neutral',
+  specificity: 'higher_is_better',
+  voice_confidence: 'neutral',
+  cliche_density: 'lower_is_better',
+  ai_generated_feel: 'lower_is_better',
+  // substance
+  actionability: 'higher_is_better',
+  novelty: 'higher_is_better',
+  shelf_life: 'higher_is_better',
+  has_firsthand_evidence: 'higher_is_better',
+  teaches_transferable_skill: 'higher_is_better',
+  // social
+  provokes_disagreement: 'neutral',
+  vulnerability: 'neutral',
+  is_self_promotional: 'lower_is_better',
+  is_engagement_bait: 'lower_is_better',
+  is_humblebrag: 'lower_is_better',
+  // verdicts
+  is_slop: 'lower_is_better',
+  provides_real_value: 'higher_is_better',
+  human_authorship_evidence: 'higher_is_better',
+  algorithmic_penalty_risk: 'lower_is_better',
+};
