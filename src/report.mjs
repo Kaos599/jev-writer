@@ -203,6 +203,15 @@ const OUTCOMES = {
  * Returns plain data. Nothing here renders, so any front end - the bundled
  * one, a Next.js app, a terminal table - consumes the same structure.
  */
+/**
+ * Below MIN_PAIRS paired observations a rank correlation is not worth running,
+ * and below MIN_DISTINCT levels the dimension has not discriminated anything.
+ * Both gates decide what counts as a test, so they are named once and shared
+ * with the family-size calculation rather than repeated as literals.
+ */
+const MIN_PAIRS = 15;
+const MIN_DISTINCT = 3;
+
 export function buildReport({ items, ratings, pack, directions }) {
   const byId = new Map(ratings.map((r) => [r.id, r.ratings]));
   const rated = items.filter((i) => byId.has(i.id));
@@ -224,16 +233,35 @@ export function buildReport({ items, ratings, pack, directions }) {
   // Which dimensions actually predicted something, per outcome.
   const validatedByOutcome = {};
   const findings = [];
-  const nTests = dims.length * Object.keys(OUTCOMES).length;
+
+  /**
+   * A dimension is only a TEST against an outcome if there is enough paired
+   * data to run one. Announcing `dims.length * outcomes` while correcting over
+   * a smaller set overstates the burden the correction carried: a dimension
+   * dropped for thin coverage was never tested, and a reader told that 48 tests
+   * were corrected should not be looking at a correction over 6.
+   *
+   * So the testable set is computed first, per outcome, and the SAME number is
+   * both announced by the power report and used as the family size for
+   * Benjamini-Hochberg below.
+   */
+  const testableFor = (outcome) => {
+    const subset = rated.filter((i) => i[outcome] != null);
+    return dims.filter((d) => {
+      const vals = subset.map((i) => byId.get(i.id)?.[d]?.value).filter((v) => v != null);
+      return vals.length >= MIN_PAIRS && new Set(vals).size >= MIN_DISTINCT;
+    });
+  };
 
   for (const [outcome, meta] of Object.entries(OUTCOMES)) {
     const subset = rated.filter((i) => i[outcome] != null);
-    const power = powerReport(subset.length, nTests);
+    const testable = testableFor(outcome);
+    const power = powerReport(subset.length, testable.length);
     validatedByOutcome[outcome] = [];
     if (power.verdict === 'descriptive') continue;
 
     const candidates = [];
-    for (const d of dims) {
+    for (const d of testable) {
       // Carry the control value alongside its own item. An earlier version
       // built \`control\` over the whole subset and then took
       // \`control.slice(0, pairs.length)\`, which is the FIRST n dates rather
@@ -245,9 +273,9 @@ export function buildReport({ items, ratings, pack, directions }) {
       const triples = subset
         .map((i) => [byId.get(i.id)?.[d]?.value, i[outcome], new Date(i.date).getTime()])
         .filter(([a]) => a != null);
-      if (triples.length < 15) continue;
+      if (triples.length < MIN_PAIRS) continue;
       const a = triples.map((t) => t[0]), b = triples.map((t) => t[1]), control = triples.map((t) => t[2]);
-      if (new Set(a).size < 3) continue;
+      if (new Set(a).size < MIN_DISTINCT) continue;
       const partial = partialSpearman(a, b, control);
       const resA = residualise(rank(a), rank(control));
       const resB = residualise(rank(b), rank(control));
@@ -381,7 +409,7 @@ export function buildReport({ items, ratings, pack, directions }) {
       dateRange: [items[0]?.date ?? null, items[items.length - 1]?.date ?? null],
     },
     power: Object.fromEntries(
-      Object.keys(OUTCOMES).map((o) => [o, powerReport(rated.filter((i) => i[o] != null).length, nTests)]),
+      Object.keys(OUTCOMES).map((o) => [o, powerReport(rated.filter((i) => i[o] != null).length, testableFor(o).length)]),
     ),
     outcomes: OUTCOMES,
     findings: findings.sort((a, b) => Number(b.confirmed) - Number(a.confirmed) || b.comparison.ratio - a.comparison.ratio),
@@ -442,14 +470,21 @@ export function corpusFacts(items) {
  */
 export function cadenceOf(volumeByYear) {
   if (volumeByYear.length < 2) return null;
-  const peak = volumeByYear.reduce((a, b) => (b.posts > a.posts ? b : a));
+  // `>=` so a tie resolves to the LATER year. With a strict `>` the first of two
+  // equal years won, the later one fell into `rest`, dragged the average down,
+  // and an author whose latest year matched their best year was told they were
+  // publishing less. That is the exact false accusation this function exists to
+  // avoid, reintroduced through a comparison operator.
+  const peak = volumeByYear.reduce((a, b) => (b.posts >= a.posts ? b : a));
   const rest = volumeByYear.filter((r) => r.year !== peak.year);
   const recent = volumeByYear[volumeByYear.length - 1];
-  const others = rest.reduce((a, r) => a + r.posts, 0) / rest.length;
+  const others = rest.length ? rest.reduce((a, r) => a + r.posts, 0) / rest.length : peak.posts;
   // A third of peak is the line between "eased off" and "essentially stopped".
   const ratio = peak.posts === 0 ? 1 : others / peak.posts;
   const direction =
-    peak.year === recent.year ? "rising" : ratio < 0.34 ? "collapsed" : ratio < 0.75 ? "declined" : "steady";
+    recent.posts >= peak.posts
+      ? (rest.length && peak.posts > others ? "rising" : "steady")
+      : ratio < 0.34 ? "collapsed" : ratio < 0.75 ? "declined" : "steady";
   return {
     direction,
     peakYear: peak.year,

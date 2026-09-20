@@ -299,7 +299,8 @@ h3{font-size:15px; letter-spacing:-.01em; margin:0 0 10px; font-weight:620}
 .stat .k{font-size:12px; font-weight:600; color:var(--fg-muted); letter-spacing:.01em}
 .stat .v{font-size:clamp(28px,5vw,34px); font-weight:680; letter-spacing:-.03em; line-height:1.15; margin:6px 0 6px}
 .stat .d{font-size:13px; color:var(--fg-muted); line-height:1.5}
-.stat .v .unit{font-size:16px; font-weight:560; color:var(--fg-muted); margin-left:2px}
+.stat .v .nodata{font-size:.5em;font-weight:500;opacity:.55;letter-spacing:0}
+.unit{font-size:16px; font-weight:560; color:var(--fg-muted); margin-left:2px}
 
 /* charts */
 .chart{width:100%; height:auto; display:block; overflow:visible}
@@ -706,7 +707,10 @@ function html(data) {
   const counts = data.questionCounts;
   const platform = data.platform;
   const plat = platform ? esc(platform) : 'the platform';
-  const pct1 = (x) => `${(x * 100).toFixed(1)}`;
+  // null * 100 is 0 in JS, so an unguarded formatter turns "we have no
+  // engagement data" into the assertion "your posts got 0.0% reach". That is a
+  // fabricated finding, which is the one thing this project must not produce.
+  const pct1 = (x) => (x == null || !Number.isFinite(x) ? null : `${(x * 100).toFixed(1)}`);
   const dateRange = data.summary.dateRange.map((d) => (d ? String(d).slice(0, 10) : '?'));
 
   const findingCard = (f, soften) => `
@@ -789,12 +793,12 @@ function html(data) {
       </div>
       <div class="card pad stat">
         <div class="k">Typical reach</div>
-        <div class="v num">${pct1(c.medianReachRate)}<span class="unit">%</span></div>
+        <div class="v num">${pct1(c.medianReachRate) ?? '<span class="nodata">No data</span>'}${pct1(c.medianReachRate) == null ? '' : '<span class="unit">%</span>'}</div>
         <div class="d">${esc(data.outcomes.reach_rate.explainer)}</div>
       </div>
       <div class="card pad stat">
         <div class="k">Typical engagement</div>
-        <div class="v num">${pct1(c.medianConversionRate)}<span class="unit">%</span></div>
+        <div class="v num">${pct1(c.medianConversionRate) ?? '<span class="nodata">No data</span>'}${pct1(c.medianConversionRate) == null ? '' : '<span class="unit">%</span>'}</div>
         <div class="d">${esc(data.outcomes.conversion_rate.explainer)}</div>
       </div>
       <div class="card pad stat">
@@ -988,6 +992,13 @@ function html(data) {
 export function buildDashboard(report, opts = {}) {
   if (!report || !Array.isArray(report.posts)) {
     throw new Error('buildDashboard needs the object buildReport() returned');
+  }
+  if (!report.corpus) {
+    // A report.json written before corpusFacts existed. Say which file is stale
+    // rather than letting the first property access throw somewhere opaque.
+    throw new Error(
+      'this report.json predates the dashboard and has no "corpus" field. Re-run "jev-writer analyze".',
+    );
   }
   return html(buildData(report, opts));
 }

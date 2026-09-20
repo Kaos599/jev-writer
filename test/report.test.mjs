@@ -91,6 +91,21 @@ test('cadence distinguishes a collapse from growth', () => {
   assert.equal(steady.direction, 'steady');
 });
 
+test('a year that ties the peak is never described as a decline', () => {
+  // Found by adversarial review. peak was chosen with a strict `>`, so the
+  // FIRST of two equal years won, the later one fell into the "other years"
+  // average, and an author whose latest year matched their best year was told
+  // they were publishing less. The exact false accusation cadenceOf exists to
+  // prevent, reintroduced through a comparison operator.
+  const tied = cadenceOf([
+    { year: '2022', posts: 5 },
+    { year: '2023', posts: 50 },
+    { year: '2024', posts: 50 },
+  ]);
+  assert.notEqual(tied.direction, 'declined');
+  assert.notEqual(tied.direction, 'collapsed');
+});
+
 test('corpusFacts counts posts per year and carries follower endpoints', () => {
   const items = [
     { date: '2024-01-01', has_metrics: true, followers_at_post: 100, impressions: 1000, engagements: 50, reach_rate: 10, conversion_rate: 0.05 },

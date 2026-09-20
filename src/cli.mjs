@@ -220,11 +220,23 @@ function analyze({ packId = 'linkedin-post' } = {}) {
   }
 
   const outcomes = ['conversion_rate', 'reach_rate'];
-  const nTests = Object.keys(dims).length * outcomes.length;
+
+  // The family size announced to the reader must be the family size the
+  // correction actually used. A dimension without enough paired data was never
+  // tested, so counting it inflates the burden the correction appears to have
+  // carried. Mirrors the same calculation in src/report.mjs.
+  const testableFor = (outcome) => {
+    const subset = [...items.values()].filter((i) => i[outcome] != null && ratings.some((r) => r.id === i.id));
+    return Object.entries(dims).filter(([, byId]) => {
+      const vals = subset.map((i) => byId[i.id]).filter((v) => v != null);
+      return vals.length >= 15 && new Set(vals).size >= 3;
+    });
+  };
 
   for (const outcome of outcomes) {
     const subset = [...items.values()].filter((i) => i[outcome] != null && ratings.some((r) => r.id === i.id));
-    const power = powerReport(subset.length, nTests);
+    const testable = testableFor(outcome);
+    const power = powerReport(subset.length, testable.length);
 
     console.log(c.bold(`\n${'='.repeat(74)}\n${outcome}\n${'='.repeat(74)}`));
     console.log((power.verdict === 'descriptive' ? c.red : power.verdict === 'weak' ? c.yellow : c.green)(power.headline));
@@ -235,7 +247,7 @@ function analyze({ packId = 'linkedin-post' } = {}) {
     }
 
     const rows = [];
-    for (const [name, byId] of Object.entries(dims)) {
+    for (const [name, byId] of testable) {
       // The publication date travels with its own item. Slicing a separate
       // control array to the surviving length takes the first n dates, not the
       // dates of the n surviving posts, so one missing rating misaligns every

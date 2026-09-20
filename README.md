@@ -71,10 +71,10 @@ Who this is for: people publishing regularly enough to have 25 or more posts wit
 | **Calibrated judgments** | Ratings come from [Jev](https://typesafe.ai), a System One model returning probability distributions over levels you define, not generated text parsed into a number. |
 | **Pre-registration** | Every question is tagged `primary` or `exploratory` in a file that lives in git, so the commit timestamp proves the commitment preceded the result. |
 | **Power gate** | Under 25 posts with outcome data, correlations are refused outright. Between 25 and 60 the tool reports the smallest effect your sample can detect. |
-| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. The shipped pack rates 24 dimensions against 2 outcomes, so 48 tests, of which roughly 2.4 will look significant on pure noise. |
+| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. The family size is the number of tests actually performed, and the same number is what the tool reports to you. |
 | **Confound control** | Every result is re-tested as a partial correlation controlling for publication date, and the correction runs on the controlled p-value. |
 | **Direction of merit** | Each dimension declares `higher_is_better`, `lower_is_better`, or `neutral`, so a low score where low is good paints green. 13, 7 and 4 of them respectively in the shipped pack. |
-| **Code features compete** | Character count, emoji, hashtags and posting cadence are computed exactly and ranked against the model's judgments. If raw length beats your rubric, you find out. |
+| **Code features compete** | Character count, emoji, hashtags, sentence length and posting cadence are computed exactly and ranked against the model's judgments in the `analyze` table. If raw length beats your rubric, you find out. |
 | **Self-contained dashboard** | One HTML file, no CDN, no build step, no network. Opens over `file://`. |
 | **Generated writing prompt** | A paste-ready review prompt derived from your own validated findings. |
 | **Portable rubric packs** | One pack, three provider dialects, translated at the boundary. |
@@ -151,7 +151,7 @@ open jev-out/dashboard.html
 | `rate` | rate the corpus, resumable |
 | `analyze` | correlate against outcomes, write `report.json` |
 | `dashboard` | render `report.json` to `dashboard.html` |
-| `run <dir>` | all five, in order |
+| `run <dir>` | build, rate, analyze, dashboard |
 
 ## What problem this solves
 
@@ -179,9 +179,15 @@ Four mechanisms, each of which can cost you a finding.
 
 **Confound control.** Every headline result is re-tested as a partial correlation controlling for publication date. A rated dimension and an outcome that both drift over time will correlate for no reason. The false-discovery correction then runs on the controlled p-value, not the raw one.
 
-**Code features compete.** Character count, emoji, hashtags, and posting cadence are computed exactly and ranked alongside the model's judgments. If raw length beats your rubric, you find out.
+**Code features compete.** Character count, emoji, hashtags, sentence length, and posting cadence are computed exactly and ranked alongside the model's judgments, so a rubric that is merely restating post length is visible as such.
 
-What this looks like in practice: on a 178-post corpus with 43 posts carrying reach data, the pack's 24 rated dimensions produced ten relationships at p < 0.05. Exactly one survived false-discovery correction, and it was tagged exploratory, so the tool declined to promote it to a finding. Nine of the ten were inside the noise budget that 48 tests buys you.
+One scope note, because it matters: those code features appear in the `analyze` terminal table, which is where you compare them against your rubric. `report.json` and the dashboard cover the rubric dimensions only. The two therefore correct over different families and can disagree about which dimensions clear the threshold. Read the table when you are auditing a rubric, and the dashboard when you are reading results.
+
+What this looks like in practice, on this project's own corpus. 178 posts, 43 of them carrying reach data, 41 carrying conversion data. The shipped pack rates 24 dimensions, so 24 tests per outcome and 48 in total, of which about 1.2 per outcome are expected to clear p < 0.05 on noise alone.
+
+Ten relationships cleared it. **One** survived Benjamini-Hochberg, and that one was tagged exploratory, so the tool declined to promote it to a finding and reported a confirmed-findings count of zero.
+
+Correction runs within each outcome, on the date-controlled p-value rather than the raw one, and the number of tests the tool announces is the number it actually corrected over. A dimension with too little paired data to test is not counted as a test that the correction survived.
 
 ## Which outcome it optimises for
 

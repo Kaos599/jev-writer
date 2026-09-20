@@ -63,9 +63,37 @@ test('refuses a report it cannot render rather than emitting a broken page', () 
   assert.throws(() => buildDashboard({}), /buildReport/);
 });
 
+test('missing engagement data reads as "no data", never as zero', () => {
+  // Found by adversarial review, and the worst class of bug this project can
+  // ship. null * 100 is 0 in JS, so an unguarded percentage formatter turned
+  // "we have no engagement data" into "your posts got 0.0% reach": a fabricated
+  // finding presented with full confidence.
+  const { items, ratings, pack, directions } = corpus(30);
+  const blind = items.map((i) => ({ ...i, has_metrics: false, impressions: null, engagements: null, reach_rate: null, conversion_rate: null }));
+  const report = buildReport({ items: blind, ratings, pack, directions });
+  assert.equal(report.corpus.medianReachRate, null);
+  const html = buildDashboard(report, { ratings, pack, platform: 'TestNet' });
+  assert.match(html, /No data/);
+  assert.doesNotMatch(html, /0\.0<span class="unit">%/, 'a null rate was rendered as 0.0%');
+});
+
+test('a report predating the dashboard fails with an actionable message', () => {
+  const { items, ratings, pack, directions } = corpus(30);
+  const report = buildReport({ items, ratings, pack, directions });
+  delete report.corpus;
+  assert.throws(() => buildDashboard(report, { ratings, pack }), /analyze/);
+});
+
 test('no statistics vocabulary escapes the collapsed methods section', () => {
   const html = render(30);
-  const body = html.slice(0, html.search(/<details[^>]*id="methods"|<h4>What was measured<\/h4>/i));
+  // Anchor on the structural marker, and fail loudly if it moves. The first
+  // version of this test searched for markup that does not exist; it passed
+  // only via a fallback alternative, and any wording change to that heading
+  // would have made .search() return -1, slicing the WHOLE document as "body"
+  // and turning the assertion vacuously true.
+  const cut = html.indexOf('<section id="methods"');
+  assert.ok(cut > -1, 'the methods section anchor moved; this test is no longer checking anything');
+  const body = html.slice(0, cut);
   for (const term of ['Spearman', 'rho', 'p-value', 'quintile', 'Benjamini', 'partial correlation']) {
     assert.ok(!new RegExp(term, 'i').test(body), `"${term}" leaked onto the main surface`);
   }
