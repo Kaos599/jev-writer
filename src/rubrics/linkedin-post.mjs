@@ -34,6 +34,16 @@ export const linkedinPostPack = {
     reach_rate: 'impressions / followers at post time - did the platform distribute it?',
     conversion_rate: 'engagements / impressions - given it was seen, did it work?',
   },
+  // Families for the expanded post view in the dashboard. Presentation only:
+  // grouping never touches how a question is asked, rated or correlated. A pack
+  // that declares none still renders, with every question in one list.
+  groups: [
+    { key: 'attention', title: 'Attention', dims: ['preview_earns_expansion', 'hook_strength', 'payoff_delivery', 'hook_archetype'] },
+    { key: 'craft', title: 'Craft', dims: ['reading_ease', 'skimmability', 'technicality', 'specificity', 'voice_confidence', 'cliche_density', 'ai_generated_feel', 'post_format'] },
+    { key: 'substance', title: 'Substance', dims: ['actionability', 'novelty', 'shelf_life', 'has_firsthand_evidence', 'teaches_transferable_skill', 'ending_type'] },
+    { key: 'social', title: 'How it behaves socially', dims: ['provokes_disagreement', 'who_is_the_hero', 'vulnerability', 'emotional_register', 'is_self_promotional', 'is_engagement_bait', 'is_humblebrag'] },
+    { key: 'verdict', title: 'Overall verdicts', dims: ['is_slop', 'provides_real_value', 'human_authorship_evidence', 'algorithmic_penalty_risk', 'most_needed_improvement'] },
+  ],
   questions: {
 
   preview_earns_expansion: score(
