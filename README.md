@@ -17,6 +17,14 @@ jev-writer rates every post you have published against a pre-registered rubric, 
 
 It analyses posts. It does not write them.
 
+Install it as an agent skill and ask your agent to analyse your writing:
+
+```bash
+npx skills add Kaos599/jev-writer --skill jev-writer
+```
+
+The skill walks you through exporting your data, getting a key, running the pipeline, and reading the result without overstating it. Or drive the CLI yourself:
+
 ```bash
 npx github:Kaos599/jev-writer doctor          # check your key, make one live call
 npx github:Kaos599/jev-writer run ./exports   # build, rate, analyse, render
@@ -331,8 +339,8 @@ Because you have fewer than 25 posts with outcome data. At that size, correlatio
 **Can I use a normal LLM instead of Jev?**
 Partly. The AI SDK's `evaluate` works with OpenAI, Anthropic, and Google models through an adapter, but those do not return calibrated probability distributions, so the rubric-health check and the confidence gating stop working.
 
-**Is it on npm?**
-Not yet. `npx github:Kaos599/jev-writer` installs straight from this repo and works today.
+**How do I install it?**
+Either way works and neither needs npm. `npx skills add Kaos599/jev-writer --skill jev-writer` installs the agent skill into Claude Code, Codex, and anything else the skills CLI supports. `npx github:Kaos599/jev-writer` runs the CLI straight from this repo.
 
 ## Contributing
 

@@ -69,8 +69,5 @@
     "./adapters/linkedin.mjs": "./src/adapters/linkedin.mjs",
     "./package.json": "./package.json"
   },
-  "author": "Kaos599",
-  "publishConfig": {
-    "access": "public"
-  }
+  "author": "Kaos599"
 }
