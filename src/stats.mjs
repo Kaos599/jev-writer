@@ -92,8 +92,27 @@ function mulberry32(seed) {
   };
 }
 
-/** Permutation test. Exact enough at these n, and assumes nothing about shape. */
-export function permutationP(a, b, iterations = 10000, seed = 20260920) {
+/**
+ * Seed for every randomised procedure in this module.
+ *
+ * A permutation p-value and a bootstrap CI both wobble from run to run. Fixing
+ * the seed makes a published finding reproducible by anyone holding the same
+ * corpus, which is the point of pre-registering the rubric in the first place.
+ * It is overridable so a result can be re-run under a different stream: a
+ * finding that only survives on one seed was never a finding.
+ */
+export const DEFAULT_SEED = 20260920;
+
+/**
+ * Permutation test. Exact enough at these n, and assumes nothing about shape.
+ *
+ * The fourth argument is `{ seed }`. A bare number is still accepted because
+ * this function is exported from the package root and the seed used to be
+ * positional; dropping that would change callers' numbers instead of breaking
+ * them, which is the one failure mode this module exists to prevent.
+ */
+export function permutationP(a, b, iterations = 10000, options = {}) {
+  const { seed = DEFAULT_SEED } = typeof options === 'number' ? { seed: options } : options;
   const observed = Math.abs(spearman(a, b));
   if (Number.isNaN(observed)) return NaN;
   const rnd = mulberry32(seed);
@@ -111,7 +130,7 @@ export function permutationP(a, b, iterations = 10000, seed = 20260920) {
 }
 
 /** Bootstrap percentile CI. Normal approximations are not trustworthy at n<60. */
-export function bootstrapCI(a, b, { iterations = 5000, alpha = 0.05, seed = 20260920 } = {}) {
+export function bootstrapCI(a, b, { iterations = 5000, alpha = 0.05, seed = DEFAULT_SEED } = {}) {
   const rnd = mulberry32(seed);
   const n = a.length;
   const out = [];
@@ -202,19 +221,23 @@ export function powerReport(n, nTests) {
  * Run one dimension against one outcome and return an honest row.
  * `tier` carries the pre-registration: 'primary' results are evidence,
  * 'exploratory' results are hypotheses for the next batch of data.
+ *
+ * The seed travels out on the row rather than staying implicit, so a reader of
+ * the report can reproduce the p-value and the interval without having to know
+ * what this module's default happened to be on the day it was run.
  */
-export function testDimension({ name, tier, values, outcome, control = null }) {
+export function testDimension({ name, tier, values, outcome, control = null, seed = DEFAULT_SEED }) {
   const n = values.length;
   const rho = spearman(values, outcome);
   if (Number.isNaN(rho)) return null;
-  const [lo, hi] = bootstrapCI(values, outcome);
-  const p = permutationP(values, outcome);
-  const row = { name, tier, n, rho, ci: [lo, hi], p };
+  const [lo, hi] = bootstrapCI(values, outcome, { seed });
+  const p = permutationP(values, outcome, 10000, { seed });
+  const row = { name, tier, n, rho, ci: [lo, hi], p, seed };
   if (control) {
     row.partialRho = partialSpearman(values, outcome, control);
     const rv = residualise(rank(values), rank(control));
     const ro = residualise(rank(outcome), rank(control));
-    row.partialP = permutationP(rv, ro);
+    row.partialP = permutationP(rv, ro, 10000, { seed });
     row.survivesControl = row.partialP < 0.05;
   }
   return row;

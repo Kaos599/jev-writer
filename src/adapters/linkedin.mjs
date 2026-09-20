@@ -204,6 +204,43 @@ const parseUsDate = (s) => {
   return m ? `${m[3]}-${String(+m[1]).padStart(2, '0')}-${String(+m[2]).padStart(2, '0')}` : null;
 };
 
+// Shares.csv dates are ISO with a time part. Only the day is ever used.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
+
+// How many offending raw values to quote back. Enough to recognise a format
+// change at a glance, few enough that a broken export does not fill the screen.
+const DROP_SAMPLES = 3;
+
+const DROP_LABELS = {
+  post: 'post row(s) in Shares_*.csv',
+  media: 'row(s) in Rich_Media.csv',
+  metric: 'analytics row(s) under TOP POSTS',
+  follower: 'row(s) in the FOLLOWERS sheet',
+};
+
+// Tolerance on the follower back-walk consistency check, as a fraction of the
+// headline total. The headline and the daily rows are computed at different
+// moments, so an exact match is not expected; a larger disagreement means the
+// two are not describing the same window.
+const FOLLOWER_TOTAL_TOLERANCE = 0.005;
+
+// Rounding-safe ratio. A zero NUMERATOR is a real outcome and must survive;
+// only a zero denominator is undefined.
+const ratio = (num, den, digits) =>
+  Number.isFinite(num) && Number.isFinite(den) && den !== 0 ? +(num / den).toFixed(digits) : null;
+
+/** One warning per source that lost rows, naming the count and the first few raw values. */
+function describeDrops(dropped, warnings) {
+  for (const [key, raws] of Object.entries(dropped)) {
+    if (!raws.length) continue;
+    const sample = raws.slice(0, DROP_SAMPLES).map((r) => JSON.stringify(r)).join(', ');
+    warnings.push(
+      `${raws.length} ${DROP_LABELS[key]} had an unreadable date and were skipped. ` +
+      `First value(s): ${sample}.`,
+    );
+  }
+}
+
 function findFile(dir, re) {
   const hit = readdirSync(dir).find((f) => re.test(f));
   return hit ? join(dir, hit) : null;
@@ -211,6 +248,10 @@ function findFile(dir, re) {
 
 export function buildCorpus(rawDir, { sinceYears = null } = {}) {
   const warnings = [];
+  // Rows whose date will not parse used to vanish without a trace, which made a
+  // silently halved corpus look exactly like a small one. Collect them instead;
+  // a malformed export is a warning to the user, not a reason to throw.
+  const dropped = { post: [], media: [], metric: [], follower: [] };
   const sharesPath = findFile(rawDir, /^Shares.*\.csv$/i);
   if (!sharesPath) {
     throw new Error(
@@ -225,10 +266,17 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
   if (!xlsxPath) warnings.push('No analytics .xlsx found: no engagement outcomes, so only descriptives are possible.');
 
   // posts
-  let posts = parseCsv(readFileSync(sharesPath, 'utf8'))
-    .map((r) => ({ date: (r.Date ?? '').trim(), text: (r.ShareCommentary ?? '').trim(), share_link: r.ShareLink ?? '', visibility: r.Visibility ?? '' }))
-    .filter((p) => p.date && p.text)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  let posts = [];
+  for (const r of parseCsv(readFileSync(sharesPath, 'utf8'))) {
+    const date = (r.Date ?? '').trim();
+    const text = (r.ShareCommentary ?? '').trim();
+    // A reshare with no commentary carries no writing to rate; that is not a
+    // parse failure and does not deserve a warning.
+    if (!text) continue;
+    if (!ISO_DATE.test(date)) { dropped.post.push(date); continue; }
+    posts.push({ date, text, share_link: r.ShareLink ?? '', visibility: r.Visibility ?? '' });
+  }
+  posts.sort((a, b) => a.date.localeCompare(b.date));
 
   if (sinceYears) {
     const cut = new Date(Date.now() - sinceYears * 365.25 * 864e5).toISOString().slice(0, 10);
@@ -241,10 +289,10 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
     for (const r of parseCsv(readFileSync(richPath, 'utf8'))) {
       const raw = r['Date/Time'] ?? '';
       const dm = RM_DATE.exec(raw);
-      if (!dm) continue;
+      if (!dm) { dropped.media.push(raw); continue; }
       const [, mon, day, yr] = /(\w+) (\d{1,2}), (\d{4})/.exec(dm[1]) ?? [];
       const mi = MONTHS.indexOf(mon);
-      if (mi < 0) continue;
+      if (mi < 0) { dropped.media.push(raw); continue; }
       const d = `${yr}-${String(mi + 1).padStart(2, '0')}-${String(+day).padStart(2, '0')}`;
       const kind = (RM_KIND.exec(raw) ?? [, 'unknown'])[1];
       if (!media.has(d)) media.set(d, new Map());
@@ -262,37 +310,89 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
       if (String(c[0]).startsWith('http')) {
         const d = parseUsDate(c[1]);
         if (d) metrics.set(d, { ...(metrics.get(d) ?? {}), post_url: c[0], engagements: Math.round(+c[2] || 0) });
+        else dropped.metric.push(String(c[1]));
       }
       if (String(c[4]).startsWith('http')) {
         const d = parseUsDate(c[5]);
         if (d) metrics.set(d, { ...(metrics.get(d) ?? {}), post_url: c[4], impressions: Math.round(+c[6] || 0) });
+        else dropped.metric.push(String(c[5]));
       }
     }
+
     // Reconstruct follower count at any date by walking back from the total.
+    //
+    // The sheet gives a headline total at a fixed cell and daily NEW-follower
+    // rows after a fixed number of header rows. Both offsets are assumptions
+    // about a layout LinkedIn can change without telling anyone, and the
+    // headline total is assumed to be the count as of the LAST daily row -
+    // which the file never states. If any of that is wrong, every
+    // followers_at_post is off by the same amount and every reach_rate is
+    // biased in the same direction: the worst kind of error, invisible and
+    // systematic.
+    //
+    // So the assumption is checked before it is used. Walking back from the
+    // total must land on a non-negative baseline, because you cannot have
+    // gained more followers inside the window than you have in total. A
+    // negative baseline, a non-numeric headline, or a daily block that yields
+    // no rows at all all mean the layout or the window is not what this code
+    // thinks, and each is caught here.
+    //
+    // On failure the follower map is left empty, which nulls followers_at_post
+    // and reach_rate for every post. Falling back to the daily sheet alone is
+    // not an option: it carries GAINS, not LEVELS, so it cannot produce a
+    // reach_rate at all. A missing reach_rate is honest; a biased one is not.
     const f = sheets.FOLLOWERS ?? [];
     if (f.length) {
-      const total = Math.round(+f[0][1] || 0);
+      const total = Math.round(Number(f[0]?.[1]));
       const daily = [];
       for (const r of f.slice(3)) {
         const d = parseUsDate(r[0]);
         const n = Number(r[1]);
         if (d && Number.isFinite(n)) daily.push([d, n]);
+        else if (String(r[0] ?? '').trim()) dropped.follower.push(String(r[0]));
       }
       daily.sort((a, b) => a[0].localeCompare(b[0]));
-      let running = total;
-      for (let i = daily.length - 1; i >= 0; i--) {
-        followersByDate.set(daily[i][0], running);
-        running -= daily[i][1];
+      const gained = daily.reduce((s, [, n]) => s + n, 0);
+      const baseline = total - gained;
+      const slack = Math.max(1, Math.abs(total) * FOLLOWER_TOTAL_TOLERANCE);
+
+      if (!Number.isFinite(total) || total <= 0) {
+        warnings.push(
+          'The FOLLOWERS sheet has no readable total where one is expected, so the follower ' +
+          'count at post time cannot be reconstructed. followers_at_post and reach_rate are null.',
+        );
+      } else if (!daily.length) {
+        warnings.push(
+          'The FOLLOWERS sheet has a total but no readable daily rows, so the follower count at ' +
+          'post time cannot be reconstructed. followers_at_post and reach_rate are null.',
+        );
+      } else if (baseline < -slack) {
+        warnings.push(
+          `The FOLLOWERS sheet is internally inconsistent: it reports ${gained} new followers ` +
+          `over the window but a total of only ${total}, so the total is not the count as of the ` +
+          `last daily row. Reconstructing from it would bias every reach_rate by a constant, so ` +
+          'followers_at_post and reach_rate are null instead.',
+        );
+      } else {
+        let running = total;
+        for (let i = daily.length - 1; i >= 0; i--) {
+          followersByDate.set(daily[i][0], running);
+          running -= daily[i][1];
+        }
       }
     }
   }
 
+  describeDrops(dropped, warnings);
+
   const followerDates = [...followersByDate.keys()].sort();
   const followersAt = (d) => {
-    if (!followerDates.length) return null;
     let best = null;
     for (const k of followerDates) { if (k <= d) best = k; else break; }
-    return followersByDate.get(best ?? followerDates[0]);
+    // A post older than every follower row has no measured count. Carrying the
+    // earliest reconstructed value backwards would be a guess wearing the
+    // costume of a measurement, and reach_rate would silently inherit it.
+    return best === null ? null : followersByDate.get(best);
   };
 
   // collisions make the date join ambiguous; report rather than guess
@@ -302,7 +402,8 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
   if (collisions.length) {
     warnings.push(
       `${collisions.length} day(s) have more than one post. The exports cannot be joined on URL, ` +
-      `so metrics for those days cannot be attributed to a specific post and are dropped.`,
+      `so nothing that belongs to one specific post - metrics, post URL, media type, media count - ` +
+      `can be attributed on those days and all of it is left null.`,
     );
   }
 
@@ -311,14 +412,23 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
     const day = p.date.slice(0, 10);
     const ambiguous = (perDay.get(day) ?? 0) > 1;
     const m = ambiguous ? {} : (metrics.get(day) ?? {});
-    const kinds = media.get(day) ?? new Map();
-    const mediaItems = [...kinds.values()].reduce((a, b) => a + b, 0);
-    const media_type = kinds.has('video') ? 'video'
+    // Rich_Media rows carry a date and nothing else that identifies a post, so
+    // on a colliding day an upload cannot be tied to one of the day's posts any
+    // more than an analytics row can. media_type is a covariate in every model
+    // downstream, so a guess here quietly contaminates the results; unknown is
+    // the only defensible value.
+    const kinds = ambiguous ? null : (media.get(day) ?? new Map());
+    const mediaItems = kinds ? [...kinds.values()].reduce((a, b) => a + b, 0) : null;
+    const media_type = !kinds ? null
+      : kinds.has('video') ? 'video'
       : (kinds.has('feed document') || kinds.has('document')) ? 'document'
       : mediaItems > 1 ? 'carousel'
       : mediaItems === 1 ? 'single_image'
       : 'text_only';
 
+    // Exempt from the collision guard on purpose: the follower count is a
+    // per-DAY level, not a per-post attribute, so two posts sharing a date
+    // genuinely share the same value. Nothing is being guessed by keeping it.
     const followers = followersAt(day);
     const impressions = m.impressions ?? null;
     const engagements = m.engagements ?? null;
@@ -338,8 +448,13 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
       impressions,
       engagements,
       followers_at_post: followers,
-      reach_rate: impressions && followers ? +(impressions / followers).toFixed(4) : null,
-      conversion_rate: impressions && engagements ? +(engagements / impressions).toFixed(5) : null,
+      // Zero engagements on a real post is the single most informative outcome
+      // in the file - it is the clearest evidence the writing did not land. A
+      // truthiness test here would null it out, and since the drop is not
+      // random it would pull every correlation toward "everything I write is
+      // fine". Only a zero denominator is genuinely undefined.
+      reach_rate: ratio(impressions, followers, 4),
+      conversion_rate: ratio(engagements, impressions, 5),
       has_metrics: impressions !== null || engagements !== null,
       days_since_previous_post: gap,
       weekday: new Date(p.date).toLocaleDateString('en-US', { weekday: 'long' }),
@@ -354,5 +469,5 @@ export function buildCorpus(rawDir, { sinceYears = null } = {}) {
     );
   }
 
-  return { items, warnings, sources: { sharesPath, richPath, xlsxPath } };
+  return { items, warnings, dropped, sources: { sharesPath, richPath, xlsxPath } };
 }

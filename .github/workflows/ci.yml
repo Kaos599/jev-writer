@@ -1,0 +1,86 @@
+# The whole test suite is `node --test` over plain modules, so CI needs no
+# services, no secrets and no network. Anything here that WOULD need an API key
+# is deliberately left out: a green tick that depends on a repository secret is
+# a tick contributors cannot reproduce, and forks cannot run at all.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor declared in engines; 22 is the current LTS.
+        node: [20, 22]
+    name: test (node ${{ matrix.node }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - run: npm test
+
+  smoke:
+    runs-on: ubuntu-latest
+    name: cli and rubric packs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # No arguments prints usage and must exit 0. `doctor` is NOT run here:
+      # it requires a provider key and exits 1 without one, so in CI it would
+      # only ever prove that the secret is missing.
+      - name: CLI help path exits 0
+        run: node src/cli.mjs
+
+      # validatePack is called directly so the packs are checked for structural
+      # errors without a key, a network call, or the rest of doctor.
+      - name: Validate every rubric pack
+        run: |
+          node -e '
+            const { readdirSync } = require("node:fs");
+            (async () => {
+              const dir = "./src/rubrics";
+              let checked = 0, bad = 0;
+              const { validatePack } = await import(dir + "/pack.mjs");
+              for (const file of readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "pack.mjs")) {
+                const mod = await import(dir + "/" + file);
+                for (const [name, value] of Object.entries(mod)) {
+                  if (!value || typeof value !== "object" || !value.questions) continue;
+                  checked++;
+                  const problems = validatePack(value);
+                  if (problems.length) {
+                    bad++;
+                    console.error("FAIL " + file + " -> " + name);
+                    for (const p of problems) console.error("       " + p);
+                  } else {
+                    console.log("OK   " + file + " -> " + name + " (" + Object.keys(value.questions).length + " questions)");
+                  }
+                }
+              }
+              if (!checked) { console.error("no rubric packs found"); process.exit(1); }
+              process.exit(bad ? 1 : 0);
+            })();
+          '

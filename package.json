@@ -1,25 +1,76 @@
 {
   "name": "jev-writer",
   "version": "0.1.0",
-  "description": "Find out which qualities of your writing actually predict engagement - with pre-registered rubrics, calibrated model judgments, and statistics honest enough to tell you when your sample is too small to know.",
+  "description": "Find out which qualities of your writing actually predict engagement. Rates your published posts against a pre-registered rubric using Jev's calibrated judgments, then tests those ratings against your real engagement data - with a power gate, date-confound control and false-discovery correction that make it refuse a conclusion your sample cannot support.",
   "keywords": [
-    "content-analytics", "linkedin-analytics", "writing-analysis", "engagement-analysis",
-    "creator-analytics", "social-media-analytics", "typesafe", "jev", "system-one",
-    "structured-outputs", "llm-evaluation", "rubric", "pre-registration",
-    "spearman", "statistical-power", "openrouter", "ai-gateway", "claude-skill", "agent-skill"
+    "content-analytics",
+    "linkedin-analytics",
+    "writing-analysis",
+    "engagement-analysis",
+    "creator-analytics",
+    "social-media-analytics",
+    "llm-as-a-judge",
+    "llm-evaluation",
+    "evals",
+    "typesafe",
+    "jev",
+    "system-one",
+    "structured-outputs",
+    "calibrated-probabilities",
+    "rubric",
+    "pre-registration",
+    "statistical-power",
+    "spearman",
+    "false-discovery-rate",
+    "openrouter",
+    "ai-gateway",
+    "claude-skill",
+    "agent-skills",
+    "cli"
   ],
   "license": "MIT",
   "type": "module",
-  "bin": { "jev-writer": "./src/cli.mjs" },
-  "files": ["src", "skills", "docs", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/Kaos599/jev-writer.git" },
+  "bin": {
+    "jev-writer": "./src/cli.mjs"
+  },
+  "files": [
+    "src",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "AGENTS.md",
+    "llms.txt"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kaos599/jev-writer.git"
+  },
   "homepage": "https://github.com/Kaos599/jev-writer#readme",
-  "bugs": { "url": "https://github.com/Kaos599/jev-writer/issues" },
+  "bugs": {
+    "url": "https://github.com/Kaos599/jev-writer/issues"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "ai": "^7.0.107"
+  },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./rubrics/pack.mjs": "./src/rubrics/pack.mjs",
+    "./rubrics/linkedin-post.mjs": "./src/rubrics/linkedin-post.mjs",
+    "./stats.mjs": "./src/stats.mjs",
+    "./report.mjs": "./src/report.mjs",
+    "./dashboard.mjs": "./src/dashboard.mjs",
+    "./adapters/linkedin.mjs": "./src/adapters/linkedin.mjs",
+    "./package.json": "./package.json"
+  },
+  "author": "Kaos599",
+  "publishConfig": {
+    "access": "public"
   }
 }
