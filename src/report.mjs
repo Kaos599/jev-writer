@@ -232,16 +232,25 @@ export function buildReport({ items, ratings, pack, directions }) {
     validatedByOutcome[outcome] = [];
     if (power.verdict === 'descriptive') continue;
 
-    const control = subset.map((i) => new Date(i.date).getTime());
     const candidates = [];
     for (const d of dims) {
-      const pairs = subset.map((i) => [byId.get(i.id)?.[d]?.value, i[outcome]]).filter(([a]) => a != null);
-      if (pairs.length < 15) continue;
-      const a = pairs.map(([x]) => x), b = pairs.map(([, y]) => y);
+      // Carry the control value alongside its own item. An earlier version
+      // built \`control\` over the whole subset and then took
+      // \`control.slice(0, pairs.length)\`, which is the FIRST n dates rather
+      // than the dates OF the surviving items. Any item dropped for a missing
+      // rating shifted every later date onto the wrong post, silently
+      // corrupting the date control that decides whether a finding is
+      // confirmed. Keeping the triple together makes the misalignment
+      // unrepresentable.
+      const triples = subset
+        .map((i) => [byId.get(i.id)?.[d]?.value, i[outcome], new Date(i.date).getTime()])
+        .filter(([a]) => a != null);
+      if (triples.length < 15) continue;
+      const a = triples.map((t) => t[0]), b = triples.map((t) => t[1]), control = triples.map((t) => t[2]);
       if (new Set(a).size < 3) continue;
-      const partial = partialSpearman(a, b, control.slice(0, pairs.length));
-      const resA = residualise(rank(a), rank(control.slice(0, pairs.length)));
-      const resB = residualise(rank(b), rank(control.slice(0, pairs.length)));
+      const partial = partialSpearman(a, b, control);
+      const resA = residualise(rank(a), rank(control));
+      const resB = residualise(rank(b), rank(control));
       const p = permutationP(resA, resB);
       const tier = pack.questions[d].tier;
       if (Number.isNaN(partial)) continue;
@@ -379,8 +388,75 @@ export function buildReport({ items, ratings, pack, directions }) {
     validated,
     weakSpots,
     bandEdges: edgesByDim,
+    corpus: corpusFacts(items),
     posts,
     writingPrompt: buildWritingPrompt({ findings, weakSpots, pack }),
+  };
+}
+
+/**
+ * Posting volume, follower growth, and headline medians, taken straight off the
+ * corpus rather than off the ratings. This is the part of a dashboard that needs
+ * no model and no statistics: it is just what the author did.
+ *
+ * `cadence` is derived rather than asserted. An earlier version of the dashboard
+ * hard-coded the narrative "you stopped posting", which was true of exactly one
+ * corpus and reads as a false accusation against anyone whose volume grew.
+ */
+export function corpusFacts(items) {
+  const byYear = new Map();
+  for (const i of items) {
+    const y = String(i.date).slice(0, 4);
+    const row = byYear.get(y) ?? { year: y, posts: 0, withMetrics: 0 };
+    row.posts++;
+    if (i.has_metrics) row.withMetrics++;
+    byYear.set(y, row);
+  }
+  const volumeByYear = [...byYear.values()].sort((a, b) => a.year.localeCompare(b.year));
+
+  const followers = items
+    .filter((i) => i.followers_at_post != null)
+    .map((i) => ({ date: i.date, followers: i.followers_at_post }));
+
+  const withMetrics = items.filter((i) => i.has_metrics);
+  const med = (xs) => median(xs.filter((v) => v != null));
+
+  return {
+    volumeByYear,
+    cadence: cadenceOf(volumeByYear),
+    followers,
+    followerStart: followers[0]?.followers ?? null,
+    followerEnd: followers[followers.length - 1]?.followers ?? null,
+    medianReachRate: med(withMetrics.map((i) => i.reach_rate)),
+    medianConversionRate: med(withMetrics.map((i) => i.conversion_rate)),
+    medianImpressions: med(withMetrics.map((i) => i.impressions)),
+    totalImpressions: withMetrics.reduce((a, i) => a + (i.impressions ?? 0), 0),
+    totalEngagements: withMetrics.reduce((a, i) => a + (i.engagements ?? 0), 0),
+  };
+}
+
+/**
+ * Describe how posting volume moved, so the dashboard can write a true sentence
+ * about it instead of a templated one. Returns null when there is not enough
+ * history to say anything honest (a single year is a data point, not a trend).
+ */
+export function cadenceOf(volumeByYear) {
+  if (volumeByYear.length < 2) return null;
+  const peak = volumeByYear.reduce((a, b) => (b.posts > a.posts ? b : a));
+  const rest = volumeByYear.filter((r) => r.year !== peak.year);
+  const recent = volumeByYear[volumeByYear.length - 1];
+  const others = rest.reduce((a, r) => a + r.posts, 0) / rest.length;
+  // A third of peak is the line between "eased off" and "essentially stopped".
+  const ratio = peak.posts === 0 ? 1 : others / peak.posts;
+  const direction =
+    peak.year === recent.year ? "rising" : ratio < 0.34 ? "collapsed" : ratio < 0.75 ? "declined" : "steady";
+  return {
+    direction,
+    peakYear: peak.year,
+    peakPosts: peak.posts,
+    latestYear: recent.year,
+    latestPosts: recent.posts,
+    otherYearAverage: Math.round(others * 10) / 10,
   };
 }
 

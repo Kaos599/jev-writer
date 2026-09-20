@@ -7,6 +7,7 @@
  *   build <dir>       parse exports into a corpus
  *   rate              send the corpus through the rubric pack
  *   analyze           correlate ratings against outcomes, honestly
+ *   dashboard         render report.json as one self-contained HTML page
  *   run <dir>         all of the above
  */
 
@@ -18,12 +19,15 @@ import { linkedinPostPack } from './rubrics/linkedin-post.mjs';
 import { validatePack, toApiQuestions, buildState, countByTier, tiersOf } from './rubrics/pack.mjs';
 import { powerReport, testDimension, benjaminiHochberg } from './stats.mjs';
 import { buildReport } from './report.mjs';
+import { buildDashboard } from './dashboard.mjs';
 import { directions as linkedinDirections } from './rubrics/linkedin-post.mjs';
 
 const OUT_DIR = process.env.JEV_WRITER_OUT ?? 'jev-out';
 const PACKS = { 'linkedin-post': linkedinPostPack };
 // Direction of merit per dimension, required by the report layer.
 const DIRECTIONS = { 'linkedin-post': linkedinDirections };
+// Display name per pack, so the dashboard can name the platform in its copy.
+const PLATFORMS = { 'linkedin-post': 'LinkedIn' };
 
 const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -230,17 +234,22 @@ function analyze({ packId = 'linkedin-post' } = {}) {
       continue;
     }
 
-    const control = subset.map((i) => new Date(i.date).getTime());
     const rows = [];
     for (const [name, byId] of Object.entries(dims)) {
-      const pairs = subset.map((i) => [byId[i.id], i[outcome]]).filter(([a]) => a != null);
-      if (pairs.length < 15) continue;
-      const vals = pairs.map(([a]) => a);
+      // The publication date travels with its own item. Slicing a separate
+      // control array to the surviving length takes the first n dates, not the
+      // dates of the n surviving posts, so one missing rating misaligns every
+      // date after it. See the same fix in src/report.mjs.
+      const triples = subset
+        .map((i) => [byId[i.id], i[outcome], new Date(i.date).getTime()])
+        .filter(([a]) => a != null);
+      if (triples.length < 15) continue;
+      const vals = triples.map((t) => t[0]);
       if (new Set(vals).size < 3) continue;
       const row = testDimension({
         name, tier: tiers[name] ?? 'code',
-        values: vals, outcome: pairs.map(([, b]) => b),
-        control: control.slice(0, pairs.length),
+        values: vals, outcome: triples.map((t) => t[1]),
+        control: triples.map((t) => t[2]),
       });
       if (row) rows.push(row);
     }
@@ -299,6 +308,31 @@ function writeReport(packId) {
   }
 }
 
+/**
+ * Render the dashboard. Reads report.json rather than recomputing, so what you
+ * see is exactly what the report layer concluded. The page embeds every post in
+ * full, which is why it is written to the output directory and never committed.
+ */
+function dashboard(packId = 'linkedin-post') {
+  const file = out('report.json');
+  if (!existsSync(file)) {
+    throw new Error(`no ${file}. Run "jev-writer analyze" first.`);
+  }
+  const report = JSON.parse(readFileSync(file, 'utf8'));
+  const ratings = existsSync(out('ratings.jsonl')) ? readJsonl(out('ratings.jsonl')) : [];
+  const html = buildDashboard(report, {
+    ratings,
+    pack: PACKS[packId],
+    platform: PLATFORMS[packId] ?? null,
+  });
+  const dest = out('dashboard.html');
+  writeFileSync(dest, html);
+  const kb = Math.round(Buffer.byteLength(html) / 1024);
+  console.log(c.bold(`\n  wrote ${dest}`) + ` (${kb} KB, ${report.posts.length} posts)`);
+  console.log(c.dim('  Self-contained: no network, no build step. Open it in any browser.'));
+  console.log(c.yellow('  It embeds the full text of every post. Do not commit it.'));
+}
+
 // ---------------------------------------------------------------- main
 
 const [cmd, arg] = process.argv.slice(2);
@@ -307,7 +341,8 @@ try {
   else if (cmd === 'build') build(arg);
   else if (cmd === 'rate') await rate();
   else if (cmd === 'analyze') analyze();
-  else if (cmd === 'run') { build(arg); await rate(); analyze(); }
+  else if (cmd === 'dashboard') dashboard();
+  else if (cmd === 'run') { build(arg); await rate(); analyze(); dashboard(); }
   else {
     console.log(`jev-writer
 
@@ -315,7 +350,8 @@ try {
   build <dir>       parse platform exports in <dir> into a corpus
   rate              rate the corpus with the rubric pack
   analyze           correlate ratings against outcomes, with a power gate
-  run <dir>         build, rate, analyze
+  dashboard         render report.json as one self-contained HTML page
+  run <dir>         build, rate, analyze, dashboard
 
 Set exactly one of AI_GATEWAY_API_KEY, OPENROUTER_API_KEY, TYPESAFE_API_KEY.
 Output goes to ${OUT_DIR}/ (override with JEV_WRITER_OUT).`);
