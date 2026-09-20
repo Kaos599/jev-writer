@@ -17,7 +17,7 @@
   "homepage": "https://github.com/Kaos599/content-signal#readme",
   "bugs": { "url": "https://github.com/Kaos599/content-signal/issues" },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "ai": "^7.0.107"
