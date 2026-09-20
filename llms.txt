@@ -1,0 +1,45 @@
+# jev-notetaker
+
+> Finds which qualities of your writing actually predict engagement. It analyses
+> published posts and never generates them; the underlying model cannot write.
+
+jev-notetaker rates every post you have published against a pre-registered
+rubric using Jev, TypeSafe AI's System One model, then tests those ratings
+against your real engagement data. It reports findings in plain language and
+withholds conclusions when the sample is too small to support them.
+
+## What it is
+
+- A command-line tool and agent skill, MIT licensed, Node >= 20.
+- Bring your own key: Vercel AI Gateway, OpenRouter, or TypeSafe direct.
+- LinkedIn is the first adapter; rubric packs make other platforms user-space files.
+
+## What makes it different from an LLM rating your posts
+
+- Jev returns calibrated probability distributions rather than generated scores,
+  so a rubric whose confidence sits near 0.5 across a corpus can be detected as
+  broken rather than silently reported.
+- Every question is pre-registered in git as primary or exploratory before any
+  result is seen, and the commit timestamp is the evidence.
+- Below 25 posts with outcome data the tool refuses to correlate at all and
+  shows descriptive statistics only.
+- Headline results are re-tested as partial correlations controlling for
+  publication date, because a rated dimension and an outcome that both drift
+  over time will correlate for no reason.
+- Countable features such as length, emoji, hashtags and posting cadence are
+  computed in code and compete with the model's judgments on equal footing.
+
+## Two outcomes it keeps separate
+
+- reach rate = impressions divided by follower count at post time. Did the
+  platform distribute it?
+- conversion rate = engagements divided by impressions. Given that people saw
+  it, did the writing work? This is unconfounded by follower count and feed luck.
+
+## Key files
+
+- README: https://github.com/Kaos599/jev-notetaker#readme
+- Rubric pack format and validation: src/rubrics/pack.mjs
+- Statistics and the power gate: src/stats.mjs
+- Plain-language report layer: src/report.mjs
+- LinkedIn export adapter: src/adapters/linkedin.mjs
