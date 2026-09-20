@@ -4,21 +4,22 @@
 
 **Find out which qualities of your writing actually predict engagement.**
 
+[![CI](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml/badge.svg)](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-27%20passing-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-67%20passing-brightgreen.svg)](test/)
 
 </div>
 
 ---
 
-jev-writer rates every post you have published against a pre-registered rubric, then tests those ratings against your real engagement data. It reports what it finds in plain language, and it withholds conclusions when your sample is too small to support them.
+jev-writer rates every post you have published against a pre-registered rubric, then tests those ratings against your real engagement numbers. It reports what it finds in plain language, and it withholds conclusions when your sample is too small to support them.
 
 It analyses posts. It does not write them.
 
 ```bash
-npx jev-writer doctor          # check your key and packs, make one live call
-npx jev-writer run ./exports   # build corpus, rate it, analyse it
+npx github:Kaos599/jev-writer doctor          # check your key, make one live call
+npx github:Kaos599/jev-writer run ./exports   # build, rate, analyse, render
 ```
 
 Works with LinkedIn exports today, and with any platform you write a rubric pack for. Bring a Vercel AI Gateway, OpenRouter, or TypeSafe key.
@@ -27,19 +28,130 @@ Works with LinkedIn exports today, and with any platform you write a rubric pack
 
 ## Contents
 
+- [What you can do with it](#what-you-can-do-with-it)
+- [Features](#features)
+- [Getting started](#getting-started)
 - [What problem this solves](#what-problem-this-solves)
 - [How this differs from asking an LLM to rate your posts](#how-this-differs-from-asking-an-llm-to-rate-your-posts)
 - [How it avoids telling you what you want to hear](#how-it-avoids-telling-you-what-you-want-to-hear)
 - [Which outcome it optimises for](#which-outcome-it-optimises-for)
+- [The dashboard](#the-dashboard)
+- [The writing prompt](#the-writing-prompt)
 - [Providers and keys](#providers-and-keys)
 - [What it costs to run](#what-it-costs-to-run)
-- [Getting started](#getting-started)
 - [Writing your own rubric pack](#writing-your-own-rubric-pack)
 - [Using it from an agent](#using-it-from-an-agent)
 - [Known limits](#known-limits)
 - [FAQ](#faq)
 
 ---
+
+## What you can do with it
+
+Six things people actually use this for. Each one names the command that does it.
+
+**Find out which of your own writing habits predicted engagement.** The core loop. Thirty judgments per post, correlated against your real numbers, with everything that fails correction thrown away. `jev-writer run ./exports`
+
+**Get a review prompt built from your own results.** The tool writes a prompt naming the dimensions that predicted engagement *for you* and the ones you are habitually weakest on. Paste it into any assistant before you publish. It is not "write a better hook"; it is your results. `jev-writer analyze`, then read `writingPrompt` in `jev-out/report.json`.
+
+**See where every post stands without reading a statistic.** One self-contained HTML page: each post graded, each judgment shown as a coloured band, sortable and searchable. `jev-writer dashboard`
+
+**Audit a rubric before you trust it.** Packs are plain files. Change a level description, re-run, and see whether the finding survives. A full pass on 178 posts cost about $0.31, which is what makes this practical rather than theoretical.
+
+**Check whether an AI-judge pipeline you already run is measuring anything.** The statistics module stands alone. Feed it your own judge scores and your own outcomes and it will tell you how much survives date control and false-discovery correction. `import { testDimension } from 'jev-writer/stats.mjs'`
+
+**Score a platform this repo has never seen.** Write an adapter that emits items with text and an outcome, write a pack, and the entire pipeline applies. Newsletters, video titles, docs pages, cold email.
+
+Who this is for: people publishing regularly enough to have 25 or more posts with engagement data, who want to know whether their instincts about their own writing are real. Below that threshold the tool will tell you it cannot know, which is the point.
+
+## Features
+
+| | |
+|---|---|
+| **Calibrated judgments** | Ratings come from [Jev](https://typesafe.ai), a System One model returning probability distributions over levels you define, not generated text parsed into a number. |
+| **Pre-registration** | Every question is tagged `primary` or `exploratory` in a file that lives in git, so the commit timestamp proves the commitment preceded the result. |
+| **Power gate** | Under 25 posts with outcome data, correlations are refused outright. Between 25 and 60 the tool reports the smallest effect your sample can detect. |
+| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. At 30 dimensions and 2 outcomes that is 48 tests, where roughly 2.4 will look significant on pure noise. |
+| **Confound control** | Every result is re-tested as a partial correlation controlling for publication date, and the correction runs on the controlled p-value. |
+| **Direction of merit** | Each dimension declares `higher_is_better`, `lower_is_better`, or `neutral`, so a low score where low is good paints green. 13, 7 and 4 of them respectively in the shipped pack. |
+| **Code features compete** | Character count, emoji, hashtags and posting cadence are computed exactly and ranked against the model's judgments. If raw length beats your rubric, you find out. |
+| **Self-contained dashboard** | One HTML file, no CDN, no build step, no network. Opens over `file://`. |
+| **Generated writing prompt** | A paste-ready review prompt derived from your own validated findings. |
+| **Portable rubric packs** | One pack, three provider dialects, translated at the boundary. |
+| **Zero-dependency parsing** | CSV, ZIP and XLSX readers are written against the stdlib. The only runtime dependency is `ai`. |
+| **Agent skill included** | A skill for Claude Code, Codex and similar, with five reference files. |
+| **67 tests** | `node --test`, no assertion library, no network. |
+
+## Getting started
+
+### 1. Export your data
+
+On LinkedIn you need **both** of these. They are different exports and neither contains the other.
+
+| Export | Where | Contains |
+|---|---|---|
+| Data archive | Settings → Data Privacy → Get a copy of your data → **the larger archive** | post text, dates, URLs |
+| Post analytics | Analytics & Tools → Post analytics → Export | impressions, reactions, comments, daily followers |
+
+The basic archive contains no `Shares_*.csv` at all, which is the single most common setup failure. Request the larger one first; it takes hours to arrive. Put both files, still zipped, in one directory.
+
+Other platforms are documented in [`references/platform-exports.md`](skills/jev-writer/references/platform-exports.md).
+
+### 2. Get a key
+
+Any one of three providers works. Full instructions per provider in [`references/providers.md`](skills/jev-writer/references/providers.md).
+
+```bash
+export AI_GATEWAY_API_KEY=...     # or OPENROUTER_API_KEY, or TYPESAFE_API_KEY
+```
+
+Set exactly one. The tool detects which and translates the rubric into that provider's dialect.
+
+### 3. Run it
+
+```bash
+npx github:Kaos599/jev-writer doctor
+npx github:Kaos599/jev-writer run ./exports
+```
+
+Or from a clone, which is what you want if you plan to edit a rubric:
+
+```bash
+git clone https://github.com/Kaos599/jev-writer && cd jev-writer
+npm install
+node src/cli.mjs doctor
+node src/cli.mjs run ./exports
+```
+
+`doctor` checks Node, your key, every rubric pack, and makes one live call before a full run spends anything.
+
+### 4. Read the output
+
+Everything lands in `jev-out/` (override with `JEV_WRITER_OUT`).
+
+| File | What it is |
+|---|---|
+| `corpus.jsonl` | your posts, joined to their metrics, with code features computed |
+| `ratings.jsonl` | raw judgments, appended as they arrive so a run resumes after an interruption |
+| `report.json` | grades, bands, plain-language findings, weak spots, and the writing prompt |
+| `dashboard.html` | the whole report as one page |
+
+```bash
+open jev-out/dashboard.html
+```
+
+`jev-out/` is gitignored. Both `report.json` and `dashboard.html` embed the full text of every post, so keep them out of commits.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `doctor` | check Node, keys, packs; one live call |
+| `build <dir>` | parse exports into `corpus.jsonl` |
+| `rate` | rate the corpus, resumable |
+| `analyze` | correlate against outcomes, write `report.json` |
+| `dashboard` | render `report.json` to `dashboard.html` |
+| `run <dir>` | all five, in order |
 
 ## What problem this solves
 
@@ -65,9 +177,11 @@ Four mechanisms, each of which can cost you a finding.
 
 **A power gate.** Below 25 posts with outcome data, the tool computes descriptive statistics and refuses to correlate at all. Between 25 and 60 it reports the minimum effect your sample can detect, and how many "significant" results to expect by chance.
 
-**Confound control.** Every headline result is re-tested as a partial correlation controlling for publication date. A rated dimension and an outcome that both drift over time will correlate for no reason.
+**Confound control.** Every headline result is re-tested as a partial correlation controlling for publication date. A rated dimension and an outcome that both drift over time will correlate for no reason. The false-discovery correction then runs on the controlled p-value, not the raw one.
 
 **Code features compete.** Character count, emoji, hashtags, and posting cadence are computed exactly and ranked alongside the model's judgments. If raw length beats your rubric, you find out.
+
+What this looks like in practice: on a 178-post corpus with 43 posts carrying reach data, thirty dimensions produced ten relationships at p < 0.05. Exactly one survived false-discovery correction, and it was tagged exploratory, so the tool declined to promote it to a finding. Nine of the ten were inside the noise budget that 48 tests buys you.
 
 ## Which outcome it optimises for
 
@@ -80,7 +194,25 @@ Two, kept deliberately separate, because they answer different questions.
 
 Conversion rate is the cleaner test of craft. It is unconfounded by follower count, posting time, and algorithmic luck. Most analytics tools report raw reactions, which mostly measures reach. A post seen by 800 people that earned 60 engagements tells you more about your writing than one seen by 5,000 that earned 90.
 
-Follower count at post time is reconstructed from the daily follower sheet in LinkedIn's own analytics export, so reach rate is a real ratio rather than a raw count compared across years of audience growth.
+Follower count at post time is reconstructed from the daily follower sheet in LinkedIn's own analytics export, so reach rate is a real ratio rather than a raw count compared across years of audience growth. The reconstruction is validated against the export's headline total; if they disagree, follower-derived fields are nulled rather than guessed.
+
+## The dashboard
+
+```bash
+jev-writer dashboard && open jev-out/dashboard.html
+```
+
+One HTML file. Inline CSS, inline JS, data embedded, no CDN and no fetch, so it opens on a laptop with no network. A 178-post corpus renders to about 600 KB.
+
+The presentation rules are the reason it exists. An earlier version showed rank correlations and p-values and was correctly described by its first reader as unreadable. So: no statistics vocabulary anywhere except one collapsed methods section, every judgment shown as a coloured band rather than a number, bands arriving direction-aware from the report so a low score on a dimension where low is good still paints green, and charts only where a chart genuinely says something.
+
+Every narrative sentence is derived from your data rather than templated. If your posting volume grew, it says so; the heading is not fixed in advance.
+
+## The writing prompt
+
+`report.json` carries a `writingPrompt` built from your own results: the dimensions that predicted engagement for you, what each one means, the level to aim for, and the gap between your typical post and your best ones. Paste it above a draft in any assistant.
+
+It is `null` when nothing survived validation. A prompt generated from no findings would be generic advice wearing your data as a costume.
 
 ## Providers and keys
 
@@ -101,31 +233,6 @@ Jev is priced at **$0.042 per million input tokens, with output tokens free**. R
 That matters for method rather than budget. Because a full pass is nearly free, you can rewrite the rubric and re-run twenty times while tuning the level descriptions, which is where the quality of this analysis actually lives.
 
 > Check current pricing before a large run. TypeSafe launched in September 2026 and pricing is still moving.
-
-## Getting started
-
-**1. Export your data.** On LinkedIn you need both of these:
-
-| Export | Path | Contains |
-|---|---|---|
-| Data archive | Settings → Data Privacy → Get a copy of your data → **larger archive** | post text, dates, URLs |
-| Post analytics | Creator Mode → Analytics & Tools → Post analytics → Export | impressions, reactions, comments |
-
-The basic archive contains no `Shares_*.csv` at all, which is the single most common setup failure. Request the larger one first, since it takes hours. Put both files in one directory.
-
-**2. Get a key.** Any provider from the table above.
-
-**3. Run it.**
-
-```bash
-export AI_GATEWAY_API_KEY=...
-npx jev-writer doctor
-npx jev-writer run ./exports
-```
-
-`doctor` verifies Node, your key, the pack, and makes one live call before a full run spends anything.
-
-Output lands in `jev-writer-out/`. The file you want is `report.json`: grades, bands, plain-language findings, and a writing prompt generated from your own results.
 
 ## Writing your own rubric pack
 
@@ -163,13 +270,30 @@ Two rules when authoring:
 
 **Rubric wording is load-bearing.** During development, tightening one clause in a single question moved its probability from **0.99 to 0.71 on identical input**. `jev-1.13` reads instructions literally, as documented on TypeSafe's [model jaggedness page](https://docs.typesafe.ai/model-jaggedness/jev-1.13). Treat pack edits as breaking changes: bump the version and re-rate rather than pooling ratings across wordings.
 
+Full guidance in [`references/rubric-authoring.md`](skills/jev-writer/references/rubric-authoring.md).
+
 ## Using it from an agent
 
-The repo ships an agent skill for Claude Code, Codex, and other agent environments. It walks a user through exporting their data, obtaining a key, running the pipeline, building a dashboard, and reading the result without overstating it.
+The repo ships an agent skill for Claude Code, Codex, and other agent environments. It walks a user through exporting their data, obtaining a key, running the pipeline, opening the dashboard, and reading the result without overstating it.
+
+```bash
+npx skills add Kaos599/jev-writer --skill jev-writer
+```
+
+The full URL form works too, and installs the same skill:
 
 ```bash
 npx skills add https://github.com/Kaos599/jev-writer --skill jev-writer
 ```
+
+Or install it by hand, which is just a file copy:
+
+```bash
+git clone https://github.com/Kaos599/jev-writer
+cp -r jev-writer/skills/jev-writer ~/.claude/skills/
+```
+
+Then ask your agent to analyse your writing, and it will pick the skill up.
 
 Reference files cover [providers](skills/jev-writer/references/providers.md), [platform exports](skills/jev-writer/references/platform-exports.md), [interpreting results](skills/jev-writer/references/interpreting-results.md), [dashboard design](skills/jev-writer/references/dashboard-design.md), and [rubric authoring](skills/jev-writer/references/rubric-authoring.md).
 
@@ -182,6 +306,7 @@ Stated plainly, because a tool that hides these is worse than no tool.
 - **Impressions are author-only.** No third-party API can supply them at any price. They are rendered only into the authenticated author's own session.
 - **Jev is calibrated, not correct.** Typed output guarantees the interface, not the truth. Validate rubrics against your own labelled examples before trusting them.
 - **Score magnitudes are ordinal.** TypeSafe warns against interpolating between levels, which is why every correlation here is Spearman rank rather than Pearson.
+- **Two posts on the same day cannot be told apart.** The analytics export joins on date. When two posts share one, metrics, post URL and media are all left null rather than guessed.
 
 ## FAQ
 
@@ -195,17 +320,20 @@ No. TypeSafe operated a waitlist at launch. The AI Gateway and OpenRouter provid
 Zero Data Retention is requested on every AI Gateway call. Check your provider's terms, since this tool sends your content to a third party and cannot make guarantees on their behalf.
 
 **Why does it refuse to give me findings?**
-Because you have fewer than 25 posts with outcome data. At that size, correlations are dominated by noise and any confident answer would be fabricated. Descriptive statistics are still shown.
+Because you have fewer than 25 posts with outcome data. At that size, correlations are dominated by noise and any confident answer would be fabricated. Descriptive statistics and the dashboard are still produced.
 
 **Can I use a normal LLM instead of Jev?**
 Partly. The AI SDK's `evaluate` works with OpenAI, Anthropic, and Google models through an adapter, but those do not return calibrated probability distributions, so the rubric-health check and the confidence gating stop working.
+
+**Is it on npm?**
+Not yet. `npx github:Kaos599/jev-writer` installs straight from this repo and works today.
 
 ## Contributing
 
 New rubric packs and platform adapters are the most useful contributions. Packs must declare their pre-registration tiers and pass `validatePack`. See [AGENTS.md](AGENTS.md) for conventions and the traps worth knowing about.
 
 ```bash
-npm test                  # 27 tests
+npm test                  # 67 tests
 node src/cli.mjs doctor   # validates every pack, makes one live call
 ```
 
