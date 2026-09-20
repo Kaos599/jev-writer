@@ -10,9 +10,37 @@ withholds conclusions when the sample is too small to support them.
 
 ## What it is
 
-- A command-line tool and agent skill, MIT licensed, Node >= 20.
+- A command-line tool and agent skill, MIT licensed, Node >= 20, 67 tests.
 - Bring your own key: Vercel AI Gateway, OpenRouter, or TypeSafe direct.
 - LinkedIn is the first adapter; rubric packs make other platforms user-space files.
+
+## Running it
+
+The package is not published to npm. Both of these work:
+
+```
+npx github:Kaos599/jev-writer doctor
+npx github:Kaos599/jev-writer run ./exports
+```
+
+Or from a clone: `git clone https://github.com/Kaos599/jev-writer`, `npm
+install`, then `node src/cli.mjs doctor` and `node src/cli.mjs run ./exports`.
+`npx jev-writer` alone does not resolve.
+
+Commands: `doctor` (node, keys, packs, one live call), `build <dir>` (parse
+exports into a corpus), `rate` (rate the corpus, resumable), `analyze`
+(correlate against outcomes, write the report), `dashboard` (render the report
+as one HTML page), `run <dir>` (all of them in order).
+
+Output goes to `jev-out/`, overridable with `JEV_WRITER_OUT`: `corpus.jsonl`,
+`ratings.jsonl`, `report.json`, `dashboard.html`. The last two embed the full
+text of every post, so the directory is gitignored.
+
+The agent skill installs with:
+
+```
+npx skills add Kaos599/jev-writer --skill jev-writer
+```
 
 ## What makes it different from an LLM rating your posts
 
@@ -25,7 +53,10 @@ withholds conclusions when the sample is too small to support them.
   shows descriptive statistics only.
 - Headline results are re-tested as partial correlations controlling for
   publication date, because a rated dimension and an outcome that both drift
-  over time will correlate for no reason.
+  over time will correlate for no reason. The false-discovery correction runs on
+  the controlled p-value, not the raw one.
+- Permutation tests and bootstrap intervals are seeded and the seed is reported,
+  so any finding is reproducible by anyone holding the same data.
 - Countable features such as length, emoji, hashtags and posting cadence are
   computed in code and compete with the model's judgments on equal footing.
 
@@ -36,10 +67,26 @@ withholds conclusions when the sample is too small to support them.
 - conversion rate = engagements divided by impressions. Given that people saw
   it, did the writing work? This is unconfounded by follower count and feed luck.
 
+## Importing it as a library
+
+The `exports` map in `package.json` is the stable surface; deep paths into
+`src/` do not resolve from outside the package.
+
+- `jev-writer` - everything below, re-exported
+- `jev-writer/stats.mjs` - correlations, permutation tests, the power gate
+- `jev-writer/report.mjs` - the plain-language report layer
+- `jev-writer/dashboard.mjs` - `buildDashboard(report, opts)`, returns HTML
+- `jev-writer/rubrics/pack.mjs` - pack format and `validatePack`
+- `jev-writer/rubrics/linkedin-post.mjs` - the shipped pack and its directions
+- `jev-writer/adapters/linkedin.mjs` - LinkedIn export parsing
+
 ## Key files
 
 - README: https://github.com/Kaos599/jev-writer#readme
+- Contributor notes and known traps: AGENTS.md
+- Agent skill and its five reference files: skills/jev-writer/
 - Rubric pack format and validation: src/rubrics/pack.mjs
 - Statistics and the power gate: src/stats.mjs
 - Plain-language report layer: src/report.mjs
+- Dashboard renderer: src/dashboard.mjs
 - LinkedIn export adapter: src/adapters/linkedin.mjs

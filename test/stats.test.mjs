@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   rank, spearman, partialSpearman, criticalR, minimumDetectableEffect,
-  powerReport, benjaminiHochberg, permutationP,
+  powerReport, benjaminiHochberg, permutationP, testDimension, DEFAULT_SEED,
 } from '../src/stats.mjs';
 
 test('rank averages ties', () => {
@@ -94,4 +94,63 @@ test('permutation p is a valid probability and is not tiny for noise', () => {
   const ps = pairs.map(([x, y]) => permutationP(x, y, 2000));
   for (const p of ps) assert.ok(p > 0 && p <= 1, `p out of range: ${p}`);
   assert.ok(ps.reduce((s, p) => s + p, 0) / ps.length > 0.15, 'noise should not look significant on average');
+});
+
+// --------------------------------------------------------------------------
+// the seed
+// --------------------------------------------------------------------------
+
+// A pair with no real relationship, so the p-value is dominated by the shuffle
+// stream and any change of seed shows up immediately.
+const NOISE_A = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3];
+const NOISE_B = [2, 7, 1, 8, 2, 8, 1, 8, 2, 8];
+
+test('the default seed is the pre-registered one and still produces the old numbers', () => {
+  // Pinned literally. If the generator, the shuffle order, or the default seed
+  // ever changes, every previously published p-value silently changes with it,
+  // which is exactly what a pre-registered analysis cannot allow.
+  assert.equal(DEFAULT_SEED, 20260920);
+  assert.equal(permutationP(NOISE_A, NOISE_B, 2000), 0.7151424287856072);
+});
+
+test('an explicit default seed is identical to omitting it', () => {
+  assert.equal(
+    permutationP(NOISE_A, NOISE_B, 2000, { seed: DEFAULT_SEED }),
+    permutationP(NOISE_A, NOISE_B, 2000),
+  );
+});
+
+test('overriding the seed changes the permutation stream', () => {
+  const a = permutationP(NOISE_A, NOISE_B, 2000, { seed: 7 });
+  const b = permutationP(NOISE_A, NOISE_B, 2000, { seed: 42 });
+  assert.notEqual(a, permutationP(NOISE_A, NOISE_B, 2000));
+  assert.notEqual(a, b);
+});
+
+test('the same override is reproducible', () => {
+  assert.equal(
+    permutationP(NOISE_A, NOISE_B, 2000, { seed: 7 }),
+    permutationP(NOISE_A, NOISE_B, 2000, { seed: 7 }),
+  );
+});
+
+test('a bare number is still accepted as the seed', () => {
+  // The seed was positional before it was an option, and this function is
+  // exported from the package root.
+  assert.equal(
+    permutationP(NOISE_A, NOISE_B, 2000, 7),
+    permutationP(NOISE_A, NOISE_B, 2000, { seed: 7 }),
+  );
+});
+
+test('testDimension reports the seed it actually used', () => {
+  const values = [5, 3, 8, 1, 9, 2, 7, 4, 6, 10, 2, 8];
+  const outcome = [1, 2, 9, 1, 8, 3, 7, 4, 5, 9, 2, 6];
+  const dflt = testDimension({ name: 'd', tier: 'primary', values, outcome });
+  assert.equal(dflt.seed, DEFAULT_SEED);
+
+  const other = testDimension({ name: 'd', tier: 'primary', values, outcome, seed: 1234 });
+  assert.equal(other.seed, 1234);
+  assert.equal(other.rho, dflt.rho, 'the point estimate does not depend on the seed');
+  assert.notDeepEqual(other.ci, dflt.ci, 'the resampled interval does');
 });

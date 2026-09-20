@@ -2,11 +2,11 @@
 name: jev-writer
 description: >
   Analyse a person's published writing to find which qualities actually predict
-  engagement, then build them a dashboard and a personalised review prompt. Use
+  engagement, then give them a dashboard and a personalised review prompt. Use
   when someone wants to know why some of their posts do better than others, wants
   their content audited or graded, asks what to change about their writing, or
   wants a content-analytics dashboard built from their own data. Walks them
-  through exporting their data and getting an API key, runs the analysis, and
+  through exporting their data and getting an API key, runs the pipeline, and
   refuses to report findings the sample cannot support. Analyses existing posts;
   it does not write them.
 license: MIT
@@ -16,7 +16,7 @@ license: MIT
 
 This skill turns "why do some of my posts work?" into an answer grounded in that
 person's own data. You will walk them through two downloads and one key, run a
-pipeline, and then build them something legible.
+pipeline, and then help them read what comes out.
 
 **The whole value is honesty.** A dozen tools already tell people their content
 is great. This one tells them when their sample is too small to know, when a
@@ -30,12 +30,12 @@ Say this early and plainly if the user seems to expect otherwise:
 - **It does not write or rewrite posts.** Jev is a System One model and is not
   trained to generate text. It returns typed judgments and probabilities.
 - **It cannot recover engagement data the platform no longer exposes.** On
-  LinkedIn, impressions exist for roughly the last 12 months and the top ~50
+  LinkedIn, impressions exist for roughly the last 12 months and the top 50
   posts. Older engagement is gone for everyone, including the platform's own UI.
 - **It cannot establish causation.** Everything it finds is an association in
   one person's history, with unmeasured confounders.
 
-## Step 1 — get their data
+## Step 1. Get their data
 
 Do not start rating anything until real data is in hand. For LinkedIn the user
 needs **both** of these, and they must be told the first one takes hours:
@@ -43,7 +43,7 @@ needs **both** of these, and they must be told the first one takes hours:
 1. **The larger data archive.** Settings → Data Privacy → *Get a copy of your
    data* → **"Download larger data archive"**. The basic archive contains no
    `Shares_*.csv` at all, which is the single most common failure. This gives
-   post text, dates and URLs, and **no engagement data whatsoever** — the
+   post text, dates and URLs, and **no engagement data whatsoever**. The
    `Reactions.csv` and `Comments.csv` inside it record what they did on *other
    people's* posts.
 2. **Post analytics export.** Creator Mode on → Analytics & Tools → Post
@@ -51,13 +51,15 @@ needs **both** of these, and they must be told the first one takes hours:
    impressions.
 
 Tell them to trigger the archive first, because everything else is blocked on it.
-Put both files in one directory.
+Put both files, still zipped, in one directory.
 
 Never suggest scraping, browser automation against the platform, or third-party
 data vendors. The first-party route is free, complete enough, and does not risk
 their account.
 
-## Step 2 — get a key
+Other platforms are covered in `references/platform-exports.md`.
+
+## Step 2. Get a key
 
 Any one of three works, and the tool auto-detects which is present:
 
@@ -73,111 +75,161 @@ hundred posts costs cents. Check current pricing before a large run.
 Never ask the user to paste a key into the chat. Have them set it in their
 environment or a local `.env`, then run `doctor`.
 
-## Step 3 — run it
+Details per provider in `references/providers.md`.
+
+## Step 3. Run it
+
+The package is not published to npm. These are the invocations that work:
 
 ```bash
-npx jev-writer doctor          # node, key, pack validation, one live call
-npx jev-writer run ./exports   # build corpus, rate it, analyse it
+npx github:Kaos599/jev-writer doctor          # node, key, pack validation, one live call
+npx github:Kaos599/jev-writer run ./exports   # build, rate, analyse, render
 ```
+
+Or from a clone, which is what you want if you plan to edit a rubric:
+
+```bash
+git clone https://github.com/Kaos599/jev-writer && cd jev-writer
+npm install
+node src/cli.mjs doctor
+node src/cli.mjs run ./exports
+```
+
+`npx jev-writer` on its own does not resolve. Do not write it.
 
 `doctor` first, always. It catches a missing key, an `ai` package too old for
 the Gateway path, and a broken rubric before a full run spends anything.
 
-Outputs land in `jev-writer-out/`: `corpus.jsonl`, `ratings.jsonl`, and
-`report.json`. **`report.json` is the artifact you build everything else from.**
+### The commands
 
-## Step 4 — read the report honestly
+| Command | What it does |
+| --- | --- |
+| `doctor` | check Node, keys, every pack; make one live call |
+| `build <dir>` | parse the exports in `<dir>` into `corpus.jsonl` |
+| `rate` | rate the corpus, resumable after an interruption |
+| `analyze` | correlate against outcomes, write `report.json` |
+| `dashboard` | render `report.json` to `dashboard.html` |
+| `run <dir>` | build, rate, analyze, dashboard, in order |
+
+Everything lands in `jev-out/`, overridable with the `JEV_WRITER_OUT`
+environment variable: `corpus.jsonl`, `ratings.jsonl`, `report.json`,
+`dashboard.html`.
+
+**`report.json` is the artifact everything else is built from.** Both it and
+`dashboard.html` embed the full text of every post. `jev-out/` is gitignored;
+never commit either file, and never paste a whole corpus into a chat.
+
+If `rate` is interrupted, run it again. It reads `ratings.jsonl` and skips posts
+already done rather than paying for them twice.
+
+## Step 4. Read the report honestly
 
 `report.json` has already done the interpretation. It contains no p-values on its
 main surface, and you should not reintroduce any.
 
-- `findings[]` — each has a `sentence` written in plain English, and a
-  `confirmed` flag. **Only `confirmed: true` findings are findings.** Everything
-  else is `exploratory`: present it as "worth watching", never as a conclusion.
-- `power` — if `verdict` is `descriptive`, the sample is too small and **no
-  correlational claim may be made at all**. Say so directly: "you have N posts
-  with engagement data, which is not enough to tell signal from noise yet."
-  Offer descriptives and suggest re-running after more posts.
-- `weakSpots[]` — the gap between their typical post and their own
+- `findings[]` each carry a `sentence` written in plain English and a `confirmed`
+  flag. **Only `confirmed: true` findings are findings.** Everything else is
+  exploratory: present it as "worth watching", never as a conclusion.
+- `power` is keyed by outcome. If a `verdict` is `descriptive`, the sample is too
+  small and **no correlational claim may be made for that outcome at all**. Say
+  so directly: "you have N posts with engagement data, which is not enough to
+  tell signal from noise yet." Offer descriptives and suggest re-running after
+  more posts.
+- `weakSpots[]` is the gap between their typical post and their own
   best-performing posts. This is the most actionable section; lead with it.
-- `posts[].grade` and `posts[].bands` — per-post grades and direction-aware
+- `posts[].grade` and `posts[].bands` are per-post grades and direction-aware
   bands. **Never recompute a band or assume a high value is good.** Direction is
-  metadata on the pack; `ai_generated_feel` high is bad, `specificity` high is
+  metadata on the pack: high `ai_generated_feel` is bad, high `specificity` is
   good.
-- `writingPrompt` — hand this to them verbatim. It is generated from their own
-  results and is the single most useful output for their next draft.
+- `writingPrompt` should be handed over verbatim. It is generated from their own
+  results and is the single most useful output for their next draft. It is
+  `null` when nothing validated, and that null is honest information rather than
+  a bug.
 
 If a rubric's mean confidence across the corpus is near 0.5, its levels do not
 discriminate. Flag it rather than quoting its number.
 
-## Step 5 — build them a dashboard
+Full guidance in `references/interpreting-results.md`.
 
-The user almost always wants to *see* this. Build a dashboard from
-`report.json`. You are the renderer; the data is already interpreted.
+## Step 5. Give them the dashboard
 
-### Non-negotiable presentation rules
+The user almost always wants to *see* this. Do not hand-write a page. The tool
+renders one:
 
-These come from a real user rejecting an earlier version as unreadable:
+```bash
+node src/cli.mjs dashboard      # or: npx github:Kaos599/jev-writer dashboard
+open jev-out/dashboard.html
+```
 
-1. **No statistics vocabulary on the main surface.** No "rho", "p =", "CI",
-   "correlation", "significant", "n=". Those belong in one collapsed "how this
-   was worked out" section at the bottom, or nowhere.
-2. **Bands and colour, not raw numbers.** A rubric value of 1.10 means nothing
-   to anyone. Show `bands[dim].label` (Poor / Weak / Typical / Strong /
-   Excellent) with colour: green for excellent and strong, grey for typical,
-   amber for weak, red for poor. The band is already direction-aware — render
-   it, do not derive it.
-3. **Lead with sentences, not charts.** `findings[].sentence` is the headline.
-   Charts only where they carry something a sentence cannot, such as a volume
-   collapse over years.
-4. **Grade every post 0–100** with a plain word attached: Strong, Good, Mixed,
-   Weak.
-5. **Every percentage gets a one-line explanation** of what it means. "Reach" and
-   "engagement rate" are not self-evident.
-6. **No scatter plots of rubric values against outcomes.** That is the part a
-   real user called meaningless.
+`run` already does this as its last step, so after a full run the file is
+waiting. It is one self-contained HTML file: inline CSS, inline JS, data
+embedded, no CDN and no fetch, so it opens by double-click with no network. A
+178-post corpus renders to about 600 KB.
 
-### Suggested structure
+It reads `report.json` rather than recomputing anything, so what the user sees is
+exactly what the report layer concluded. If `report.json` is missing, the command
+tells you to run `analyze` first.
 
-1. How your content is doing — volume by year, median reach and engagement with
-   plain explanations, follower growth.
-2. What's working for you — confirmed findings as large statements, then
-   `weakSpots` as "the gap between your best posts and your typical post".
-3. Your posts, graded — sortable, grade-first, click to expand into full text and
-   all judgments as coloured bands with their level descriptions in words.
-4. Your writing prompt — `report.writingPrompt` in a copy-to-clipboard box.
-5. How this was worked out — collapsed; methodology and caveats live here.
+Your job after rendering it is to walk them through it and keep the reading
+honest: point at `weakSpots`, name which findings are confirmed and which are
+only exploratory, and repeat the sample-size caveat if `power` says so.
 
-### Build guidance
+### If someone wants a custom dashboard
 
-Prefer a **single self-contained HTML file** with inline CSS and JS and the data
-embedded, so it opens by double-click with no server and no build step. If the
-user already has a React or Next.js project and asks for it there, shadcn/ui
-components map cleanly onto this structure: `Card` for each post, `Badge` for
-band chips, `Table` for the graded list, `Tabs` for the sections, `Collapsible`
-for the methodology. Otherwise implement the same visual conventions — subtle
-borders, rounded corners, muted foregrounds, badge chips — in plain CSS.
+Only when they ask for it inside their own React or Next.js project, or want a
+different shape. `references/dashboard-design.md` is the specification. It
+records the presentation rules the shipped dashboard follows and why each one
+exists, including the user feedback that produced them. Build from `report.json`
+only; the data is already interpreted.
 
-Dark-mode-first, working in both themes via CSS custom properties. Tabular
-numerals for figures. Phone width with no horizontal scroll.
+The rules that matter most, in short: no statistics vocabulary on the main
+surface, bands and colour rather than raw rubric numbers, lead with
+`findings[].sentence`, grade every post 0 to 100 with a plain word attached,
+explain every percentage, no scatter plots of rubric values against outcomes, and
+de-emphasise exploratory results so a skimming reader cannot mistake one for a
+finding.
 
-Write a small generator script alongside the HTML so the dashboard can be
-regenerated when data changes, rather than being a dead artifact.
+`buildDashboard` is also exported, so a custom renderer can start from the
+shipped page rather than from nothing:
+
+```js
+import { buildDashboard } from 'jev-writer/dashboard.mjs';
+
+const html = buildDashboard(report, { ratings, pack, platform: 'LinkedIn' });
+```
+
+`ratings` is the parsed rows of `ratings.jsonl`, `pack` is the rubric pack, and
+`platform` is a display name. All three are optional.
 
 ## Extending to other platforms
 
 A rubric pack is a versioned set of typed questions plus the state fields each
 question may see. To support a new platform, write an adapter producing items
-with text plus an outcome, and a pack. See `src/rubrics/pack.mjs`.
+with text plus an outcome, and a pack. The format lives in `src/rubrics/pack.mjs`
+in the repo, and consumers import it as `jev-writer/rubrics/pack.mjs`.
 
 Two rules when authoring a pack:
 
 - **Never ask the model anything code can count.** Length, emoji, hashtags,
   cadence and media type are computed exactly and compete with the judgments.
 - **Pre-register every question** as `primary` or `exploratory` before seeing
-  results, and declare a `direction` for each. Both are enforced by
-  `validatePack` and the report layer.
+  results, and give every rated dimension a direction of merit. `validatePack`
+  enforces the tier. Directions are a separate `directions` export alongside the
+  pack; the report layer throws when one is missing, so a pack without them
+  produces no `report.json` and no dashboard.
 
 Rubric wording is load-bearing. In development, tightening one clause moved a
 judgment from 0.99 to 0.71 on identical input. Treat pack edits as breaking
 changes and re-rate rather than pooling ratings across wordings.
+
+Full guidance in `references/rubric-authoring.md`.
+
+## Reference files
+
+| File | Covers |
+| --- | --- |
+| `references/providers.md` | getting a key, the three transports, cost, adding a fourth |
+| `references/platform-exports.md` | what is exportable from X, Medium, Substack, YouTube, Reddit, Instagram |
+| `references/interpreting-results.md` | every field in `report.json` and what may be said about it |
+| `references/dashboard-design.md` | why the dashboard looks the way it does, and the spec for a custom one |
+| `references/rubric-authoring.md` | writing and validating a pack |
