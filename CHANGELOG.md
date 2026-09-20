@@ -8,7 +8,7 @@ Notable changes to jev-writer. Format loosely follows [Keep a Changelog](https:/
 - `jev-writer dashboard` renders `report.json` as one self-contained HTML page: inline CSS and JS, data embedded, no CDN and no build step, so it opens over `file://`. Exposed as `buildDashboard()` for programmatic use.
 - `corpus` facts on the report: posting volume by year, follower trajectory, and headline medians.
 - A derived posting-cadence classification, so the dashboard writes a true sentence about your volume instead of a templated one.
-- An `exports` map, making `jev-writer/rubrics/pack.mjs`, `jev-writer/stats.mjs`, `jev-writer/report.mjs`, `jev-writer/dashboard.mjs` and `jev-writer/adapters/linkedin.mjs` the stable public surface.
+- An `exports` map for library consumers, making `jev-writer/rubrics/pack.mjs`, `jev-writer/stats.mjs`, `jev-writer/report.mjs`, `jev-writer/dashboard.mjs` and `jev-writer/adapters/linkedin.mjs` the stable public surface.
 - Question groups on the LinkedIn pack, covering all 30 questions across 5 families. Presentation only.
 - CI on Node 20 and 22, plus a smoke job validating every rubric pack without a key.
 - Tests for `report.mjs` and `dashboard.mjs`, which had none. Suite grew from 27 to 67.
