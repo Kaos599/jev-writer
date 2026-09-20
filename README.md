@@ -71,7 +71,7 @@ Who this is for: people publishing regularly enough to have 25 or more posts wit
 | **Calibrated judgments** | Ratings come from [Jev](https://typesafe.ai), a System One model returning probability distributions over levels you define, not generated text parsed into a number. |
 | **Pre-registration** | Every question is tagged `primary` or `exploratory` in a file that lives in git, so the commit timestamp proves the commitment preceded the result. |
 | **Power gate** | Under 25 posts with outcome data, correlations are refused outright. Between 25 and 60 the tool reports the smallest effect your sample can detect. |
-| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. At 30 dimensions and 2 outcomes that is 48 tests, where roughly 2.4 will look significant on pure noise. |
+| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. The shipped pack rates 24 dimensions against 2 outcomes, so 48 tests, of which roughly 2.4 will look significant on pure noise. |
 | **Confound control** | Every result is re-tested as a partial correlation controlling for publication date, and the correction runs on the controlled p-value. |
 | **Direction of merit** | Each dimension declares `higher_is_better`, `lower_is_better`, or `neutral`, so a low score where low is good paints green. 13, 7 and 4 of them respectively in the shipped pack. |
 | **Code features compete** | Character count, emoji, hashtags and posting cadence are computed exactly and ranked against the model's judgments. If raw length beats your rubric, you find out. |
@@ -181,7 +181,7 @@ Four mechanisms, each of which can cost you a finding.
 
 **Code features compete.** Character count, emoji, hashtags, and posting cadence are computed exactly and ranked alongside the model's judgments. If raw length beats your rubric, you find out.
 
-What this looks like in practice: on a 178-post corpus with 43 posts carrying reach data, thirty dimensions produced ten relationships at p < 0.05. Exactly one survived false-discovery correction, and it was tagged exploratory, so the tool declined to promote it to a finding. Nine of the ten were inside the noise budget that 48 tests buys you.
+What this looks like in practice: on a 178-post corpus with 43 posts carrying reach data, the pack's 24 rated dimensions produced ten relationships at p < 0.05. Exactly one survived false-discovery correction, and it was tagged exploratory, so the tool declined to promote it to a finding. Nine of the ten were inside the noise budget that 48 tests buys you.
 
 ## Which outcome it optimises for
 

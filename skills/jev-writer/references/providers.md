@@ -4,8 +4,14 @@ Jev is reachable through three transports today. The tool auto-detects whichever
 key is present, so the user sets one environment variable and nothing else.
 
 **Never ask a user to paste an API key into a chat.** Have them set it in their
-shell or a local `.env`, then run `jev-writer doctor`, which confirms the key
-works without ever displaying it.
+shell or a local `.env`, then run `doctor`, which confirms the key works without
+ever displaying it:
+
+```bash
+npx github:Kaos599/jev-writer doctor   # or, from a clone: node src/cli.mjs doctor
+```
+
+The package is not on npm, so `npx jev-writer doctor` does not resolve.
 
 ## The three routes
 
@@ -17,6 +23,9 @@ works without ever displaying it.
 
 Recommend whichever the user already has an account with. If they have none,
 OpenRouter is usually the fastest to obtain.
+
+Set exactly one. If several are set, the first present in the order above wins,
+and `doctor` prints both which one it chose and a note that others were ignored.
 
 ## Why these are not interchangeable URLs
 
@@ -41,8 +50,8 @@ provider translates on the way in and out.
 ## Cost
 
 Jev is priced at **$0.042 per million input tokens, output free**. Rating 178
-posts with 30 questions at 5 repetitions each consumed roughly 7.4M input
-tokens — about $0.31.
+posts with 30 questions at 5 repetitions each is 890 calls, which consumed
+roughly 7.4M input tokens: about $0.31.
 
 The practical consequence is methodological rather than financial: because a
 full pass is nearly free, rubrics can be rewritten and re-run many times while
@@ -55,11 +64,16 @@ September 2026 and pricing has been moving.
 This tool sends a person's private writing to a third party. Treat that as a
 material fact, not a footnote.
 
-- Zero Data Retention is requested on every AI Gateway call.
+- Zero Data Retention is requested on every AI Gateway call
+  (`providerOptions.gateway.zeroDataRetention`). The other two transports have no
+  equivalent flag in this codebase, so on those routes the provider's own default
+  applies.
 - Tell the user which provider their content will reach, and point them at that
   provider's terms rather than making guarantees on the provider's behalf.
 - Never commit a corpus, ratings, or a generated dashboard that embeds post text.
-  The repo's `.gitignore` excludes `data/`, `out/` and `*.jsonl` for this reason.
+  The repo's `.gitignore` excludes the whole output directory (`jev-out/`) plus
+  `data/`, `out/`, `*.jsonl`, `dashboard.html` and `report.json` for this reason.
+  An earlier version listed only file types and missed `jev-out/report.json`.
 
 ## Adding a fourth provider
 
