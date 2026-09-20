@@ -15,6 +15,10 @@ Notable changes to jev-writer. Format loosely follows [Keep a Changelog](https:/
 - `CONTRIBUTING.md`, `SECURITY.md`, and this file.
 
 ### Fixed
+- **The dashboard reported "0.0% reach" when there was no engagement data at all.** `null * 100` is `0` in JavaScript, so the percentage formatter turned "we cannot measure this" into a confident claim of zero reach, on the hero card, whenever no analytics export was supplied. It now reads "No data".
+- Benjamini-Hochberg corrected over the dimensions that could actually be tested while the power headline announced dimensions times outcomes. Where outcome coverage is thin the two diverge. The family size is now computed once and the number announced is the number corrected over.
+- `cadenceOf` picked the peak year with a strict `>`, so an author whose latest year tied their best year was told they were publishing less.
+- `buildDashboard` threw an opaque `TypeError` on a `report.json` written before the corpus fields existed. It now names the stale file and the command to re-run.
 - **The date-control gate was silently corrupted.** `control.slice(0, pairs.length)` took the first n publication dates rather than the dates of the n surviving items, so a single post missing a rating misaligned every date after it. This is the mechanism that decides whether a finding is confirmed or dismissed as time drift. Values, outcomes and dates now travel as one tuple through a single filter, making the misalignment unrepresentable.
 - **Zero engagements were treated as missing data.** `impressions && engagements ? ... : null` dropped any post with no engagement from every correlation, which systematically excluded the worst-performing posts and biased every finding upward. Only a zero denominator now yields null.
 - Same-date collisions left media type and media count attributed to a pooled guess while correctly nulling metrics. All per-post fields are now null on a colliding date.
