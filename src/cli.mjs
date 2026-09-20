@@ -17,9 +17,13 @@ import { buildCorpus } from './adapters/linkedin.mjs';
 import { linkedinPostPack } from './rubrics/linkedin-post.mjs';
 import { validatePack, toApiQuestions, buildState, countByTier, tiersOf } from './rubrics/pack.mjs';
 import { powerReport, testDimension, benjaminiHochberg } from './stats.mjs';
+import { buildReport } from './report.mjs';
+import { directions as linkedinDirections } from './rubrics/linkedin-post.mjs';
 
 const OUT_DIR = process.env.JEV_WRITER_OUT ?? 'jev-out';
 const PACKS = { 'linkedin-post': linkedinPostPack };
+// Direction of merit per dimension, required by the report layer.
+const DIRECTIONS = { 'linkedin-post': linkedinDirections };
 
 const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -240,19 +244,58 @@ function analyze({ packId = 'linkedin-post' } = {}) {
       });
       if (row) rows.push(row);
     }
-    const q = benjaminiHochberg(rows.map((r) => r.p));
+    // False-discovery correction runs on the DATE-CONTROLLED p, not the raw
+    // one. Correcting the uncontrolled p and then calling the result
+    // "confirmed" would let a finding the tool has itself flagged as shared
+    // time drift survive to the headline.
+    const q = benjaminiHochberg(rows.map((r) => (r.partialP ?? r.p)));
     rows.forEach((r, i) => { r.q = q[i]; });
     rows.sort((a, b) => Math.abs(b.rho) - Math.abs(a.rho));
 
     console.log(c.bold(`\n  ${'dimension'.padEnd(30)}${'rho'.padStart(7)}${'95% CI'.padStart(18)}${'p'.padStart(9)}${'q(BH)'.padStart(8)}  tier`));
     for (const r of rows) {
-      const sig = r.q < 0.05 && r.tier === 'primary';
+      // Three conditions, all required: pre-registered, surviving
+      // false-discovery correction, and still significant once publication
+      // date is controlled for.
+      const sig = r.q < 0.05 && r.tier === 'primary' && r.survivesControl !== false;
       const line = `  ${r.name.padEnd(30)}${r.rho >= 0 ? '+' : ''}${r.rho.toFixed(3).padStart(6)} [${r.ci[0].toFixed(2)},${r.ci[1].toFixed(2)}]`.padEnd(58) +
         `${r.p.toFixed(4).padStart(9)}${r.q.toFixed(4).padStart(8)}  ${r.tier}` +
         (r.survivesControl === false && r.p < 0.05 ? c.yellow('  (explained by date)') : '');
       console.log(sig ? c.bold(line) : r.tier === 'exploratory' ? c.dim(line) : line);
     }
-    console.log(c.dim(`\n  Bold = pre-registered AND surviving false-discovery correction. Dim = exploratory: a hypothesis, not a finding.`));
+    console.log(c.dim(`\n  Bold = pre-registered, surviving false-discovery correction, and still significant`));
+    console.log(c.dim(`  once publication date is controlled for. Dim = exploratory: a hypothesis, not a finding.`));
+  }
+
+  writeReport(packId);
+}
+
+/**
+ * Write report.json: the plain-language artifact everything downstream is built
+ * from. The terminal table above is for the operator; this file is for the
+ * user, a dashboard, or an agent, and contains no statistics vocabulary.
+ */
+function writeReport(packId) {
+  const pack = PACKS[packId];
+  const dirs = DIRECTIONS[packId];
+  if (!dirs) {
+    console.log(c.yellow(`\n  No direction metadata for pack "${packId}"; skipping report.json.`));
+    return;
+  }
+  const items = readJsonl(out('corpus.jsonl')).sort((a, b) => a.date.localeCompare(b.date));
+  const ratings = readJsonl(out('ratings.jsonl'));
+  try {
+    const report = buildReport({ items, ratings, pack, directions: dirs });
+    writeFileSync(out('report.json'), JSON.stringify(report, null, 2));
+    const confirmed = report.findings.filter((f) => f.confirmed).length;
+    console.log(c.bold(`\n  wrote ${out('report.json')}`));
+    console.log(`    ${report.findings.length} findings (${confirmed} confirmed), ${report.weakSpots.length} weak spots`);
+    console.log(`    ${report.posts.filter((p) => p.grade).length} posts graded`);
+    console.log(report.writingPrompt
+      ? c.green('    writing prompt generated from your own results')
+      : c.yellow('    no writing prompt: nothing validated against your outcomes'));
+  } catch (e) {
+    console.error(c.red(`\n  could not write report.json: ${e.message}`));
   }
 }
 
