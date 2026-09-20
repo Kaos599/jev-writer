@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * jev-notetaker CLI.
+ * jev-writer CLI.
  *
  * Commands:
  *   doctor            check environment, keys, inputs, and reachability
@@ -18,7 +18,7 @@ import { linkedinPostPack } from './rubrics/linkedin-post.mjs';
 import { validatePack, toApiQuestions, buildState, countByTier, tiersOf } from './rubrics/pack.mjs';
 import { powerReport, testDimension, benjaminiHochberg } from './stats.mjs';
 
-const OUT_DIR = process.env.JEV_NOTETAKER_OUT ?? 'jev-out';
+const OUT_DIR = process.env.JEV_WRITER_OUT ?? 'jev-out';
 const PACKS = { 'linkedin-post': linkedinPostPack };
 
 const c = {
@@ -36,7 +36,7 @@ const readJsonl = (f) => readFileSync(f, 'utf8').trim().split('\n').filter(Boole
 // ---------------------------------------------------------------- doctor
 
 async function doctor() {
-  console.log(c.bold('\njev-notetaker doctor\n'));
+  console.log(c.bold('\njev-writer doctor\n'));
   let fatal = 0;
 
   const [maj] = process.versions.node.split('.').map(Number);
@@ -107,7 +107,7 @@ async function doctor() {
 // ---------------------------------------------------------------- build
 
 function build(dir) {
-  if (!dir) throw new Error('usage: jev-notetaker build <dir-with-linkedin-exports>');
+  if (!dir) throw new Error('usage: jev-writer build <dir-with-linkedin-exports>');
   ensureOut();
   const { items, warnings, sources } = buildCorpus(dir);
   writeFileSync(out('corpus.jsonl'), items.map((i) => JSON.stringify(i)).join('\n') + '\n');
@@ -266,7 +266,7 @@ try {
   else if (cmd === 'analyze') analyze();
   else if (cmd === 'run') { build(arg); await rate(); analyze(); }
   else {
-    console.log(`jev-notetaker
+    console.log(`jev-writer
 
   doctor            check node, keys, packs, and make one live call
   build <dir>       parse platform exports in <dir> into a corpus
@@ -275,7 +275,7 @@ try {
   run <dir>         build, rate, analyze
 
 Set exactly one of AI_GATEWAY_API_KEY, OPENROUTER_API_KEY, TYPESAFE_API_KEY.
-Output goes to ${OUT_DIR}/ (override with JEV_NOTETAKER_OUT).`);
+Output goes to ${OUT_DIR}/ (override with JEV_WRITER_OUT).`);
   }
 } catch (e) {
   console.error(c.red(`\n${e.message}\n`));

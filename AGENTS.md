@@ -39,7 +39,7 @@ src/rubrics/*.mjs        shipped packs
 src/adapters/*.mjs       platform export parsing
 src/providers/*.mjs      one file per transport
 src/cli.mjs              doctor / build / rate / analyze / run
-skills/jev-notetaker/    the agent skill and its references
+skills/jev-writer/    the agent skill and its references
 test/                    node:test, no framework
 ```
 

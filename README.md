@@ -1,10 +1,10 @@
-# jev-notetaker
+# jev-writer
 
-**jev-notetaker finds which qualities of your writing actually predict engagement — and tells you when your sample is too small to know.** It rates every post you have written against a pre-registered rubric using [Jev](https://typesafe.ai), TypeSafe AI's System One model, then correlates those ratings against real outcomes with rank statistics, permutation tests and a power gate that withholds conclusions it cannot support. It works with LinkedIn exports today and any platform you write a rubric pack for. Bring an AI Gateway, OpenRouter or TypeSafe key.
+**jev-writer finds which qualities of your writing actually predict engagement — and tells you when your sample is too small to know.** It rates every post you have written against a pre-registered rubric using [Jev](https://typesafe.ai), TypeSafe AI's System One model, then correlates those ratings against real outcomes with rank statistics, permutation tests and a power gate that withholds conclusions it cannot support. It works with LinkedIn exports today and any platform you write a rubric pack for. Bring an AI Gateway, OpenRouter or TypeSafe key.
 
 ```bash
-npx jev-notetaker doctor          # check keys, packs, and make one live call
-npx jev-notetaker run ./exports   # build corpus, rate it, analyse it
+npx jev-writer doctor          # check keys, packs, and make one live call
+npx jev-writer run ./exports   # build corpus, rate it, analyse it
 ```
 
 ---
@@ -13,7 +13,7 @@ npx jev-notetaker run ./exports   # build corpus, rate it, analyse it
 
 Most "AI rates your content" tools ask a language model to score a post from 1 to 10, then present whatever comes back as insight. Three things go wrong. The score is a generated token, not a measured quantity, so it carries no calibrated uncertainty. Nothing is ever checked against what actually happened to the post. And scoring twenty dimensions against two outcomes runs forty significance tests, of which roughly two will look meaningful on pure noise — so the tool reliably produces a confident story regardless of whether one exists.
 
-jev-notetaker inverts all three. Judgments come from a model that returns probability distributions natively. Every judgment is tested against real engagement data. And the statistics are adversarial toward their own conclusions: pre-registration, false-discovery correction, and a refusal threshold.
+jev-writer inverts all three. Judgments come from a model that returns probability distributions natively. Every judgment is tested against real engagement data. And the statistics are adversarial toward their own conclusions: pre-registration, false-discovery correction, and a refusal threshold.
 
 ## How is this different from asking ChatGPT to rate my posts?
 
@@ -82,8 +82,8 @@ Stated plainly, because a tool that hides these is worse than no tool:
 
 ```bash
 export AI_GATEWAY_API_KEY=...
-npx jev-notetaker doctor
-npx jev-notetaker run ./exports
+npx jev-writer doctor
+npx jev-writer run ./exports
 ```
 
 `doctor` verifies Node, your key, the pack, and makes one live call before you spend anything on a full run.
@@ -93,7 +93,7 @@ npx jev-notetaker run ./exports
 A pack is a versioned set of typed questions plus the fields each question may see. LinkedIn is one pack; newsletters, video titles, documentation and cold email are ordinary user-space files.
 
 ```js
-import { score, bool } from 'jev-notetaker/rubrics/pack.mjs';
+import { score, bool } from 'jev-writer/rubrics/pack.mjs';
 
 export default {
   id: 'newsletter', version: '1.0.0',
@@ -122,7 +122,7 @@ export default {
 The repo ships an agent skill for Claude Code, Codex and other agent environments. It walks a user through exporting their data, obtaining a key, running the pipeline, and reading the result without overstating it.
 
 ```bash
-npx skills add https://github.com/Kaos599/jev-notetaker --skill jev-notetaker
+npx skills add https://github.com/Kaos599/jev-writer --skill jev-writer
 ```
 
 ## FAQ

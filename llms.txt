@@ -1,9 +1,9 @@
-# jev-notetaker
+# jev-writer
 
 > Finds which qualities of your writing actually predict engagement. It analyses
 > published posts and never generates them; the underlying model cannot write.
 
-jev-notetaker rates every post you have published against a pre-registered
+jev-writer rates every post you have published against a pre-registered
 rubric using Jev, TypeSafe AI's System One model, then tests those ratings
 against your real engagement data. It reports findings in plain language and
 withholds conclusions when the sample is too small to support them.
@@ -38,7 +38,7 @@ withholds conclusions when the sample is too small to support them.
 
 ## Key files
 
-- README: https://github.com/Kaos599/jev-notetaker#readme
+- README: https://github.com/Kaos599/jev-writer#readme
 - Rubric pack format and validation: src/rubrics/pack.mjs
 - Statistics and the power gate: src/stats.mjs
 - Plain-language report layer: src/report.mjs

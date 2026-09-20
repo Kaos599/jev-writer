@@ -1,5 +1,5 @@
 {
-  "name": "jev-notetaker",
+  "name": "jev-writer",
   "version": "0.1.0",
   "description": "Find out which qualities of your writing actually predict engagement - with pre-registered rubrics, calibrated model judgments, and statistics honest enough to tell you when your sample is too small to know.",
   "keywords": [
@@ -10,12 +10,12 @@
   ],
   "license": "MIT",
   "type": "module",
-  "bin": { "jev-notetaker": "./src/cli.mjs" },
+  "bin": { "jev-writer": "./src/cli.mjs" },
   "files": ["src", "skills", "docs", "README.md", "LICENSE"],
   "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/Kaos599/jev-notetaker.git" },
-  "homepage": "https://github.com/Kaos599/jev-notetaker#readme",
-  "bugs": { "url": "https://github.com/Kaos599/jev-notetaker/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/Kaos599/jev-writer.git" },
+  "homepage": "https://github.com/Kaos599/jev-writer#readme",
+  "bugs": { "url": "https://github.com/Kaos599/jev-writer/issues" },
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },

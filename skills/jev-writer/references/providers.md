@@ -4,7 +4,7 @@ Jev is reachable through three transports today. The tool auto-detects whichever
 key is present, so the user sets one environment variable and nothing else.
 
 **Never ask a user to paste an API key into a chat.** Have them set it in their
-shell or a local `.env`, then run `jev-notetaker doctor`, which confirms the key
+shell or a local `.env`, then run `jev-writer doctor`, which confirms the key
 works without ever displaying it.
 
 ## The three routes

@@ -1,5 +1,5 @@
 ---
-name: jev-notetaker
+name: jev-writer
 description: >
   Analyse a person's published writing to find which qualities actually predict
   engagement, then build them a dashboard and a personalised review prompt. Use
@@ -76,14 +76,14 @@ environment or a local `.env`, then run `doctor`.
 ## Step 3 — run it
 
 ```bash
-npx jev-notetaker doctor          # node, key, pack validation, one live call
-npx jev-notetaker run ./exports   # build corpus, rate it, analyse it
+npx jev-writer doctor          # node, key, pack validation, one live call
+npx jev-writer run ./exports   # build corpus, rate it, analyse it
 ```
 
 `doctor` first, always. It catches a missing key, an `ai` package too old for
 the Gateway path, and a broken rubric before a full run spends anything.
 
-Outputs land in `jev-notetaker-out/`: `corpus.jsonl`, `ratings.jsonl`, and
+Outputs land in `jev-writer-out/`: `corpus.jsonl`, `ratings.jsonl`, and
 `report.json`. **`report.json` is the artifact you build everything else from.**
 
 ## Step 4 — read the report honestly
