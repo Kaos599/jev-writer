@@ -174,10 +174,19 @@ change `SKILL.md` and its reference files together: anything too long for the
 skill body belongs in `skills/jev-writer/references/`, and `SKILL.md` should
 point at it rather than repeat it.
 
+## Branching, Release, and PR Procedure
+
+All code and documentation changes must follow this strict promotion procedure:
+
+1. **Commit to a dedicated feature branch**: Never commit directly to `dev` or `main`.
+2. **Open a PR into `dev` and check CI**: Create a PR targeting `dev`, watch CI runs (`CI/test` on Node 20 and 22, plus pack validation), and verify all checks pass.
+3. **Merge into `dev`**: Once CI passes and changes are verified, merge the PR into `dev`.
+4. **Promote from `dev` to `main` via PR**: Open a PR from `dev` into `main`, verify all file changes contain zero personal or private data, confirm all CI checks pass on `main`, and merge.
+
 ## Before you open a PR
 
 ```bash
-npm test                  # node:test, 67 tests, all must pass
+npm test                  # node:test, 72 tests, all must pass
 node src/cli.mjs doctor   # validates every pack and makes one live call
 ```
 
