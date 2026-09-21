@@ -129,12 +129,12 @@ Engineered for technical creators on LinkedIn and X / Twitter:
 - **Anti-Slop Technical Integrity:** Strips synthetic balanced tricolons, corporate hype, and engagement begging.
 
 ### 3. `general-writing` — Essays, Newsletters & Long-Form Articles
-Platform-agnostic evaluation of prose craft and intellectual substance:
-- **Thesis Clarity:** Clear, defensible central spine versus wandering thoughts.
-- **Logical Progression:** Cumulative paragraph flow and seamless argument transitions.
-- **Information Density:** High insight-to-word ratio without synthetic filler.
-- **Intellectual Honesty:** Thoughtful engagement with counter-arguments and boundary conditions.
-- **Voice Authenticity:** Irreplaceable personal perspective versus generic corporate smoothing.
+Dense, platform-agnostic evaluation of prose craft, substance, and social stance (35 questions):
+- **Attention & Openings:** Preview truncation, stopping power, opening archetypes, and payoff delivery.
+- **Craft & Structure:** Thesis clarity, logical argument progression, reading ease, skimmability, information density, and technicality demand.
+- **Substance & Rigor:** Specificity, firsthand evidence, transferable lessons, intellectual honesty, and shelf life.
+- **Social Dynamics & Voice:** Comment provocation, narrative focus (hero), vulnerability, emotional register, self-promotion, and engagement baiting.
+- **Quality Verdicts:** Anti-slop checks, real reader value, human authorship fingerprints, and unearned hype detection.
 
 ### 4. `linkedin-post` — Viral Feed Creator Content
 Optimized for the specific mechanics of LinkedIn's mobile and desktop feeds:

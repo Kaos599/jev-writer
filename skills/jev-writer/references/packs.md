@@ -93,11 +93,11 @@ Evaluates writing on fundamental prose craft and intellectual substance rather t
 - **Anti-Slop Integrity:** Detects AI-generated cadence, recycled platitudes, and unearned hype.
 
 ### Key Question Families
-- **Attention & Premise (4 dims):** `preview_earns_expansion`, `hook_strength`, `payoff_delivery`, `hook_archetype`.
-- **Structure & Argument Flow (5 dims):** `thesis_clarity`, `logical_progression`, `reading_ease`, `skimmability`, `information_density`.
-- **Substance & Intellectual Honesty (7 dims):** `specificity`, `has_firsthand_evidence`, `intellectual_honesty`, `novelty`, `actionability`, `shelf_life`, `post_format`.
-- **Voice & Phrasing (5 dims):** `voice_authenticity`, `cliche_density`, `ai_generated_feel`, `human_authorship_evidence`, `who_is_the_hero`.
-- **Overall Verdicts (4 dims):** `is_slop`, `provides_real_value`, `unearned_hype`, `most_needed_improvement`.
+- **Attention & Openings (4 dims):** `preview_earns_expansion`, `hook_strength`, `payoff_delivery`, `hook_archetype`.
+- **Craft & Structure (11 dims):** `thesis_clarity`, `logical_progression`, `reading_ease`, `skimmability`, `information_density`, `technicality`, `specificity`, `voice_confidence`, `cliche_density`, `ai_generated_feel`, `post_format`.
+- **Substance & Value (7 dims):** `actionability`, `novelty`, `shelf_life`, `has_firsthand_evidence`, `teaches_transferable_skill`, `intellectual_honesty`, `ending_type`.
+- **Social Dynamics & Stance (7 dims):** `provokes_disagreement`, `who_is_the_hero`, `vulnerability`, `emotional_register`, `is_self_promotional`, `is_engagement_bait`, `is_humblebrag`.
+- **Overall Verdicts (6 dims):** `is_slop`, `provides_real_value`, `human_authorship_evidence`, `algorithmic_penalty_risk`, `unearned_hype`, `most_needed_improvement`.
 
 ---
 
