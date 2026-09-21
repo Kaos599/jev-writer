@@ -68,21 +68,26 @@ This is the order the shipped page uses.
 1. **How your content is doing.** Volume by year, median reach and engagement
    with plain explanations, follower growth.
 2. **What's working for you.** Confirmed findings as large readable statements,
-   then `weakSpots` as "the gap between your best posts and your typical post".
+   format and hook breakdown diagnostics (with visible sample sizes $n$ and observational
+   framing), audience response profile, then `weakSpots` as "the gap between your best posts and your typical post".
    This is the section users act on; put it high.
-3. **Your posts, graded.** Sortable, grade first. Click to expand into the full
+3. **Your posts, graded.** Sortable, grade first, filterable by format and metrics. Click to expand into the full
    text, every judgment as a coloured band with its level description in words,
    and the `fixes` list as "what would most improve this post".
 4. **Your writing prompt.** `report.writingPrompt` in a copy-to-clipboard box,
    with one line explaining it was generated from their own results.
-5. **How this was worked out.** Collapsed. Methodology, sample size, caveats, and
-   the only place statistical detail is allowed.
+5. **How this was worked out (and Advanced Mode).** Collapsed by default. Methodology, sample size, caveats,
+   and an interactive Diagnostic Table exposing partial rank correlation, permutation p-values, sample sizes,
+   and power thresholds when toggled via the "Advanced view" button in the header.
 
 Judgments inside the expanded post view are grouped into families. A pack may
 declare its own `groups`; the LinkedIn pack declares five, covering all thirty
 questions. Grouping is presentation only and never touches how a question is
 asked, rated or correlated, and anything a pack does not place falls into a
 catch-all so a new pack renders sensibly on day one.
+
+For modular component design and progressive enhancement across data tiers (Tier 1 text-only to Tier 3 full outcomes), consult `references/components.md`.
+
 
 ## Building a custom one
 

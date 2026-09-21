@@ -7,17 +7,19 @@
 [![CI](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml/badge.svg)](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-67%20passing-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen.svg)](test/)
 
 </div>
 
 ---
 
-jev-writer rates every post you have published against a pre-registered rubric, then tests those ratings against your real engagement numbers. It reports what it finds in plain language, and it withholds conclusions when your sample is too small to support them.
+**jev-writer** is an open-source content analytics engine and LLM-as-a-judge evaluation harness. It rates published posts against pre-registered writing rubrics using calibrated probabilities from Jev (TypeSafe AI's System One model), then tests those ratings against real engagement outcomes (impressions, reach rate, conversion rate).
 
-It analyses posts. It does not write them.
+Unlike generative writing assistants that flatter drafts, jev-writer enforces strict statistical safeguards: an observational power gate, date-confound controls, and Benjamini-Hochberg false-discovery corrections. It reports what it finds in plain English and refuses to state findings when sample sizes cannot support them.
 
-Install it as an agent skill and ask your agent to analyse your writing:
+**It analyses posts. It does not write them.**
+
+Install it as an agent skill and ask your coding agent to audit and analyze your writing:
 
 ```bash
 npx skills add Kaos599/jev-writer --skill jev-writer
@@ -322,35 +324,60 @@ Stated plainly, because a tool that hides these is worse than no tool.
 - **Score magnitudes are ordinal.** TypeSafe warns against interpolating between levels, which is why every correlation here is Spearman rank rather than Pearson.
 - **Two posts on the same day cannot be told apart.** The analytics export joins on date. When two posts share one, metrics, post URL and media are all left null rather than guessed.
 
-## FAQ
+## Frequently Asked Questions (FAQ)
 
-**Does this work for platforms other than LinkedIn?**
-Yes. The statistics and the rubric format are platform-agnostic. You need an adapter producing items with text and an outcome, plus a rubric pack. LinkedIn ships in the box, and `references/platform-exports.md` documents what is recoverable from X, Medium, Substack, YouTube, Reddit, and Instagram.
+### How does jev-writer prevent false correlations?
+jev-writer enforces three mathematical safeguards:
+1. **The Power Gate:** With fewer than 25 posts with outcome data, correlations are refused entirely. Between 25 and 60 posts, minimum detectable effect sizes are reported with prominent sample size warnings.
+2. **Date-Confound Residualization:** It computes partial Spearman rank correlations controlling for post publication date, preventing time drift from masquerading as writing quality findings.
+3. **Benjamini-Hochberg Correction:** False-discovery rate (FDR) control is calculated across all tests run, testing against date-controlled permutation p-values.
 
-**Do I need a TypeSafe account?**
-No. TypeSafe operated a waitlist at launch. The AI Gateway and OpenRouter providers reach the same model without one.
+### Can jev-writer rewrite or draft my posts?
+No. Jev is a System One model calibrated for categorical evaluation and probability estimation, not conversational drafting. jev-writer analyzes existing posts and produces a targeted review prompt for drafting assistants.
 
-**Does my writing get used for training?**
-Zero Data Retention is requested on every AI Gateway call. Check your provider's terms, since this tool sends your content to a third party and cannot make guarantees on their behalf.
+### What does it cost to evaluate a library of posts?
+Jev is priced at $0.042 per million input tokens with output free. Evaluating a typical 100-post library across 30 questions at 5 repetitions consumes approximately 4–5M tokens (~$0.20 total).
 
-**Why does it refuse to give me findings?**
-Because you have fewer than 25 posts with outcome data. At that size, correlations are dominated by noise and any confident answer would be fabricated. Descriptive statistics and the dashboard are still produced.
+### How does jev-writer adapt to platforms with sparse data?
+jev-writer uses a 3-tier progressive component architecture (detailed in `skills/jev-writer/references/components.md`):
+- **Tier 1 (Text Only, e.g. Medium):** Rubric audits, AI-feel distributions, writing style diagnoses, and the generated writing prompt.
+- **Tier 2 (Text + Cadence, e.g. Substack):** Adds posting volume, cadence velocity, and style evolution over time.
+- **Tier 3 (Full Text + Outcomes, e.g. LinkedIn):** Outcome metrics, reach vs conversion comparisons, format/hook breakdown matrices, and statistical diagnostic tables.
 
-**Can I use a normal LLM instead of Jev?**
-Partly. The AI SDK's `evaluate` works with OpenAI, Anthropic, and Google models through an adapter, but those do not return calibrated probability distributions, so the rubric-health check and the confidence gating stop working.
+### Does this work for platforms other than LinkedIn?
+Yes. The statistics and rubric specifications are platform-agnostic. You need an adapter producing items with text and an outcome, plus a rubric pack. LinkedIn ships in the box, and `skills/jev-writer/references/platform-exports.md` documents what is exportable from X, Medium, Substack, YouTube, Reddit, and Instagram.
 
-**How do I install it?**
-Either way works and neither needs npm. `npx skills add Kaos599/jev-writer --skill jev-writer` installs the agent skill into Claude Code, Codex, and anything else the skills CLI supports. `npx github:Kaos599/jev-writer` runs the CLI straight from this repo.
+### Do I need a TypeSafe account?
+No. Vercel AI Gateway and OpenRouter provide access to the same calibrated Jev model without a TypeSafe console account.
+
+### Does my writing get used for model training?
+Zero Data Retention is requested on every AI Gateway call. Check your chosen provider's terms; jev-writer sends content only to your selected provider.
+
+## Roadmap & Tasks
+
+- [x] Pre-registered rubric pack format and validation (`src/rubrics/pack.mjs`)
+- [x] Spearman rank, permutation tests, and Benjamini-Hochberg FDR (`src/stats.mjs`)
+- [x] Confound control for publication date drift
+- [x] Zero-dependency CSV/XLSX parser for LinkedIn archives
+- [x] Multi-provider support (AI Gateway, OpenRouter, TypeSafe direct)
+- [x] High-fidelity self-contained dashboard with SVG charting and dark/light modes
+- [x] Format and hook archetype breakdown diagnostics with visible sample sizes ($n$)
+- [x] Component-first architecture and progressive enhancement across Tiers 1-3 (`skills/jev-writer/references/components.md`)
+- [x] Comprehensive agent skill with 6 reference guides
+- [ ] Native adapters for X/Twitter and Substack archives
+- [ ] User custom configuration file for pack overrides
+- [ ] SQLite persistence layer for historical runs
 
 ## Contributing
 
-New rubric packs and platform adapters are the most useful contributions. Packs must declare their pre-registration tiers and pass `validatePack`. See [AGENTS.md](AGENTS.md) for conventions and the traps worth knowing about.
+New rubric packs and platform adapters are the most useful contributions. Packs must declare their pre-registration tiers and pass `validatePack`. See [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) for conventions and traps worth knowing about.
 
 ```bash
-npm test                  # 67 tests
+npm test                  # 72 tests passing
 node src/cli.mjs doctor   # validates every pack, makes one live call
 ```
 
 ## License
 
 MIT
+
