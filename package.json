@@ -64,10 +64,15 @@
     ".": "./src/index.mjs",
     "./rubrics/pack.mjs": "./src/rubrics/pack.mjs",
     "./rubrics/linkedin-post.mjs": "./src/rubrics/linkedin-post.mjs",
+    "./rubrics/general-writing.mjs": "./src/rubrics/general-writing.mjs",
+    "./rubrics/technical-blog.mjs": "./src/rubrics/technical-blog.mjs",
+    "./rubrics/technical-post.mjs": "./src/rubrics/technical-post.mjs",
     "./stats.mjs": "./src/stats.mjs",
     "./report.mjs": "./src/report.mjs",
     "./dashboard.mjs": "./src/dashboard.mjs",
+    "./audit.mjs": "./src/audit.mjs",
     "./adapters/linkedin.mjs": "./src/adapters/linkedin.mjs",
+    "./adapters/text.mjs": "./src/adapters/text.mjs",
     "./package.json": "./package.json"
   },
   "author": "Kaos599"

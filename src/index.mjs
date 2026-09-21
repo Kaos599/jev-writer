@@ -43,8 +43,15 @@ export {
   bool,
 } from './rubrics/pack.mjs';
 
+export { generalWritingPack, directions as generalDirections } from './rubrics/general-writing.mjs';
+export { linkedinPostPack, directions as linkedinDirections } from './rubrics/linkedin-post.mjs';
+export { technicalBlogPack, directions as technicalBlogDirections } from './rubrics/technical-blog.mjs';
+export { technicalPostPack, directions as technicalPostDirections } from './rubrics/technical-post.mjs';
+
 export { buildCorpus, textFeatures, splitHook } from './adapters/linkedin.mjs';
+export { buildTextCorpus, parseTextFile } from './adapters/text.mjs';
 
 export { PROVIDERS, detectProvider, availableProviders, evaluate } from './providers/index.mjs';
 
 export { buildDashboard } from './dashboard.mjs';
+export { auditPost, preparePostState, formatAuditTerminal, formatAuditMarkdown } from './audit.mjs';
