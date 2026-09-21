@@ -34,6 +34,16 @@ npx github:Kaos599/jev-writer run ./exports   # build, rate, analyse, render
 
 Works with LinkedIn exports today, and with any platform you write a rubric pack for. Bring a Vercel AI Gateway, OpenRouter, or TypeSafe key.
 
+### Writing Better Content with Agent Skills
+
+It is recommended to use GenAI coding agents with specialized writing skills to eliminate synthetic AI tells and author grounded technical prose. You can install the companion professional writing skills package ([`Kaos599/professional-skills`](https://github.com/Kaos599/professional-skills)) with:
+
+```bash
+npx skills add Kaos599/professional-skills
+```
+
+This equips your agent with `technical-content-writer` and `anti-slop-writing` to write higher-clarity technical content in correspondence and at work, pairing directly with `jev-writer`'s calibrated pre-flight audits.
+
 ---
 
 ## Contents
