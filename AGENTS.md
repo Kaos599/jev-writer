@@ -41,7 +41,7 @@ src/rubrics/*.mjs        shipped packs, each with its own `directions` export
 src/adapters/*.mjs       platform export parsing
 src/providers/*.mjs      one file per transport
 src/cli.mjs              doctor / build / rate / analyze / dashboard / run
-skills/jev-writer/       the agent skill and its five reference files
+skills/jev-writer/       the agent skill and its six reference files
 test/                    node:test, no framework
 .github/workflows/ci.yml node 20 and 22, plus a keyless pack-validation smoke job
 llms.txt                 the short machine-readable description of the project

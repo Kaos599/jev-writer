@@ -35,7 +35,11 @@ Say this early and plainly if the user seems to expect otherwise:
 - **It cannot establish causation.** Everything it finds is an association in
   one person's history, with unmeasured confounders.
 
-## Step 1. Get their data
+## Step 1. Identify their platform and get their data
+
+Always start by asking the user which platform and identity/account they want to analyze:
+- **LinkedIn:** The primary fully supported adapter today.
+- **Medium, X / Twitter, Substack, YouTube, Reddit, Instagram / Threads:** Research and export paths are detailed in `references/platform-exports.md`.
 
 Do not start rating anything until real data is in hand. For LinkedIn the user
 needs **both** of these, and they must be told the first one takes hours:
@@ -51,13 +55,14 @@ needs **both** of these, and they must be told the first one takes hours:
    impressions.
 
 Tell them to trigger the archive first, because everything else is blocked on it.
-Put both files, still zipped, in one directory.
+Put both files, still zipped, in one directory (e.g. `./exports`).
 
 Never suggest scraping, browser automation against the platform, or third-party
 data vendors. The first-party route is free, complete enough, and does not risk
 their account.
 
-Other platforms are covered in `references/platform-exports.md`.
+For other platforms (Medium, Substack, X, etc.), consult `references/platform-exports.md`. If a platform export contains post text but lacks per-post analytics (such as Medium), explain that the tool will provide qualitative rubric audits and voice diagnostics (Tier 1/Tier 2) rather than correlational claims.
+
 
 ## Step 2. Get a key
 
@@ -174,13 +179,23 @@ Your job after rendering it is to walk them through it and keep the reading
 honest: point at `weakSpots`, name which findings are confirmed and which are
 only exploratory, and repeat the sample-size caveat if `power` says so.
 
+### Component-first UI construction (Adapting to data depth)
+
+A key strength of this architecture is component-level adaptability. When building or customizing a dashboard, do not assume every user has extensive data like LinkedIn. An author on Medium may have text only and zero metrics; an author on X without Premium may have cadence and text but no impressions.
+
+Consult `references/components.md` for the modular component catalog:
+- **Tier 1: Sparse (Text only, e.g. Medium):** Render qualitative rubric profiles, AI-feel distributions, writing style audits, and the writing prompt. Do not attempt correlational or reach charts.
+- **Tier 2: Text + Volume (e.g. X / Substack archive):** Add posting volume, cadence velocity, and style evolution over time.
+- **Tier 3: Full Text + Outcomes (e.g. LinkedIn):** Full dashboard with reach/engagement metrics, format & hook breakdown matrices, weak spot comparisons, and the Advanced Mode diagnostic table.
+
+AI coding agents and developers can assemble these components using React + shadcn/ui or rely on the shipped standalone renderer.
+
 ### If someone wants a custom dashboard
 
 Only when they ask for it inside their own React or Next.js project, or want a
-different shape. `references/dashboard-design.md` is the specification. It
-records the presentation rules the shipped dashboard follows and why each one
-exists, including the user feedback that produced them. Build from `report.json`
-only; the data is already interpreted.
+different shape. `references/dashboard-design.md` and `references/components.md` are the specifications. They
+record the presentation rules the shipped dashboard follows and why each one
+exists. Build from `report.json` only; the data is already interpreted.
 
 The rules that matter most, in short: no statistics vocabulary on the main
 surface, bands and colour rather than raw rubric numbers, lead with
@@ -228,8 +243,10 @@ Full guidance in `references/rubric-authoring.md`.
 
 | File | Covers |
 | --- | --- |
+| `references/components.md` | component-first architecture, UI tokens (shadcn-inspired), progressive tiers 1-3, SVG chart specs |
 | `references/providers.md` | getting a key, the three transports, cost, adding a fourth |
 | `references/platform-exports.md` | what is exportable from X, Medium, Substack, YouTube, Reddit, Instagram |
 | `references/interpreting-results.md` | every field in `report.json` and what may be said about it |
 | `references/dashboard-design.md` | why the dashboard looks the way it does, and the spec for a custom one |
 | `references/rubric-authoring.md` | writing and validating a pack |
+

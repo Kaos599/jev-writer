@@ -5,13 +5,21 @@ Notable changes to jev-writer. Format loosely follows [Keep a Changelog](https:/
 ## [Unreleased]
 
 ### Added
+- Enhanced dashboard presentation with shadcn/ui-inspired tokens, dark/light theme toggle, and refined typographic hierarchy.
+- Interactive **Advanced view** toggle and detailed statistical diagnostic table in `#methods`.
+- High-fidelity SVG breakdown diagnostics for post formats, opening hook archetypes, and media types with visible sample sizes ($n$) and observational caveats.
+- Content & Audience Performance observation cards in the dashboard.
+- Format filter dropdown in the post explorer.
+- `skills/jev-writer/references/components.md` specifying a 3-tier progressive component architecture (Tier 1 text-only to Tier 3 full outcomes) for AI coding agents.
+- `CLAUDE.md` providing comprehensive guidelines for Claude Code agents.
+- SEO, GEO, and AEO optimization for `README.md` including direct Q&A schemas and project roadmap.
 - `jev-writer dashboard` renders `report.json` as one self-contained HTML page: inline CSS and JS, data embedded, no CDN and no build step, so it opens over `file://`. Exposed as `buildDashboard()` for programmatic use.
 - `corpus` facts on the report: posting volume by year, follower trajectory, and headline medians.
 - A derived posting-cadence classification, so the dashboard writes a true sentence about your volume instead of a templated one.
 - An `exports` map for library consumers, making `jev-writer/rubrics/pack.mjs`, `jev-writer/stats.mjs`, `jev-writer/report.mjs`, `jev-writer/dashboard.mjs` and `jev-writer/adapters/linkedin.mjs` the stable public surface.
 - Question groups on the LinkedIn pack, covering all 30 questions across 5 families. Presentation only.
 - CI on Node 20 and 22, plus a smoke job validating every rubric pack without a key.
-- Tests for `report.mjs` and `dashboard.mjs`, which had none. Suite grew from 27 to 67.
+- Tests for `report.mjs` and `dashboard.mjs`, growing suite to 72 passing tests.
 - `CONTRIBUTING.md`, `SECURITY.md`, and this file.
 
 ### Fixed

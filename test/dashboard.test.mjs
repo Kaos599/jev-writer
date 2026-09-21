@@ -129,3 +129,23 @@ test('renders under the power gate, saying nothing held up', () => {
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /Nothing held up firmly enough/i);
 });
+
+test('renders advanced view toggle and methods diagnostic table', () => {
+  const html = render(30);
+  assert.match(html, /id="advToggleBtn"/, 'Advanced view toggle button missing');
+  assert.match(html, /class="diag-table"/, 'Diagnostic table missing in methods');
+});
+
+test('renders format breakdown and format filter when format choices are present', () => {
+  const { items, ratings, pack, directions } = corpus(30);
+  // inject format choices
+  items.forEach((it, idx) => {
+    it.media_type = idx % 2 === 0 ? 'carousel' : 'single_image';
+    ratings[idx].ratings.post_format = { type: 'choice', value: idx % 2 === 0 ? 'listicle' : 'narrative' };
+  });
+  const report = buildReport({ items, ratings, pack, directions });
+  const html = buildDashboard(report, { ratings, pack, platform: 'TestNet' });
+  assert.match(html, /Post formats/, 'Post formats breakdown chart missing');
+  assert.match(html, /id="fmtSel"/, 'Format filter dropdown missing');
+});
+
