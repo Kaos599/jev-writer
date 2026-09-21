@@ -74,6 +74,15 @@ node src/cli.mjs doctor
 node src/cli.mjs run ./exports
 ```
 
+## Branching, Release, and PR Procedure
+
+All code and documentation changes follow this strict promotion workflow:
+
+1. **Feature branch**: Make commits to a dedicated feature branch (never directly to `dev` or `main`).
+2. **PR into `dev` & CI verification**: Open a PR targeting `dev`, watch CI (`CI/test` on Node 20 and 22, pack validation), and ensure all checks pass.
+3. **Merge into `dev`**: Once CI passes and changes are verified, merge the PR into `dev`.
+4. **Promote from `dev` to `main` via PR**: Open a PR from `dev` into `main`, verify all changes contain zero personal or private data, confirm all CI checks pass on `main`, and merge.
+
 ## Conventions
 
 - **ESM only**, Node >= 20, no TypeScript, no build step.
