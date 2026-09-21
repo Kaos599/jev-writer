@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validatePack, toApiQuestions, buildState, countByTier, score, choice, bool } from '../src/rubrics/pack.mjs';
-import { linkedinPostPack } from '../src/rubrics/linkedin-post.mjs';
+import { linkedinPostPack, directions as linkedinDirections } from '../src/rubrics/linkedin-post.mjs';
+import { generalWritingPack, directions as generalDirections } from '../src/rubrics/general-writing.mjs';
+import { technicalBlogPack, directions as technicalBlogDirections } from '../src/rubrics/technical-blog.mjs';
+import { technicalPostPack, directions as technicalPostDirections } from '../src/rubrics/technical-post.mjs';
 
 const base = {
   id: 'x', version: '1.0.0', description: 'd', stateFields: ['body'],
@@ -10,6 +13,42 @@ const base = {
 
 test('the shipped LinkedIn pack is valid', () => {
   assert.deepEqual(validatePack(linkedinPostPack), []);
+});
+
+test('the shipped General Writing pack is valid', () => {
+  assert.deepEqual(validatePack(generalWritingPack), []);
+  const { primary, exploratory } = countByTier(generalWritingPack);
+  assert.ok(primary > 0 && exploratory > 0);
+  assert.equal(primary + exploratory, Object.keys(generalWritingPack.questions).length);
+  for (const [qId, q] of Object.entries(generalWritingPack.questions)) {
+    if (q.type === 'score' || q.type === 'boolean') {
+      assert.ok(generalDirections[qId], `direction missing for ${qId}`);
+    }
+  }
+});
+
+test('the shipped Technical Blog pack is valid', () => {
+  assert.deepEqual(validatePack(technicalBlogPack), []);
+  const { primary, exploratory } = countByTier(technicalBlogPack);
+  assert.ok(primary > 0 && exploratory > 0);
+  assert.equal(primary + exploratory, Object.keys(technicalBlogPack.questions).length);
+  for (const [qId, q] of Object.entries(technicalBlogPack.questions)) {
+    if (q.type === 'score' || q.type === 'boolean') {
+      assert.ok(technicalBlogDirections[qId], `direction missing for ${qId}`);
+    }
+  }
+});
+
+test('the shipped Technical Post pack is valid', () => {
+  assert.deepEqual(validatePack(technicalPostPack), []);
+  const { primary, exploratory } = countByTier(technicalPostPack);
+  assert.ok(primary > 0 && exploratory > 0);
+  assert.equal(primary + exploratory, Object.keys(technicalPostPack.questions).length);
+  for (const [qId, q] of Object.entries(technicalPostPack.questions)) {
+    if (q.type === 'score' || q.type === 'boolean') {
+      assert.ok(technicalPostDirections[qId], `direction missing for ${qId}`);
+    }
+  }
 });
 
 test('the shipped pack declares its pre-registration split', () => {

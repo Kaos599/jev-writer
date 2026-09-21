@@ -14,20 +14,39 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { availableProviders, detectProvider, evaluate } from './providers/index.mjs';
+import { linkedinPostPack, directions as linkedinDirections } from './rubrics/linkedin-post.mjs';
+import { generalWritingPack, directions as generalDirections } from './rubrics/general-writing.mjs';
+import { technicalBlogPack, directions as technicalBlogDirections } from './rubrics/technical-blog.mjs';
+import { technicalPostPack, directions as technicalPostDirections } from './rubrics/technical-post.mjs';
 import { buildCorpus } from './adapters/linkedin.mjs';
-import { linkedinPostPack } from './rubrics/linkedin-post.mjs';
+import { buildTextCorpus } from './adapters/text.mjs';
 import { validatePack, toApiQuestions, buildState, countByTier, tiersOf } from './rubrics/pack.mjs';
 import { powerReport, testDimension, benjaminiHochberg } from './stats.mjs';
 import { buildReport } from './report.mjs';
 import { buildDashboard } from './dashboard.mjs';
-import { directions as linkedinDirections } from './rubrics/linkedin-post.mjs';
+import { auditPost, formatAuditTerminal, formatAuditMarkdown } from './audit.mjs';
 
 const OUT_DIR = process.env.JEV_WRITER_OUT ?? 'jev-out';
-const PACKS = { 'linkedin-post': linkedinPostPack };
+const PACKS = {
+  'general-writing': generalWritingPack,
+  'linkedin-post': linkedinPostPack,
+  'technical-blog': technicalBlogPack,
+  'technical-post': technicalPostPack,
+};
 // Direction of merit per dimension, required by the report layer.
-const DIRECTIONS = { 'linkedin-post': linkedinDirections };
+const DIRECTIONS = {
+  'general-writing': generalDirections,
+  'linkedin-post': linkedinDirections,
+  'technical-blog': technicalBlogDirections,
+  'technical-post': technicalPostDirections,
+};
 // Display name per pack, so the dashboard can name the platform in its copy.
-const PLATFORMS = { 'linkedin-post': 'LinkedIn' };
+const PLATFORMS = {
+  'general-writing': 'General Writing',
+  'linkedin-post': 'LinkedIn',
+  'technical-blog': 'Technical Blog',
+  'technical-post': 'Technical Post',
+};
 
 const c = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -114,15 +133,21 @@ async function doctor() {
 
 // ---------------------------------------------------------------- build
 
-function build(dir) {
-  if (!dir) throw new Error('usage: jev-writer build <dir-with-linkedin-exports>');
+function build(dir, opts = {}) {
+  if (!dir) throw new Error('usage: jev-writer build <dir> [--adapter linkedin|text]');
   ensureOut();
-  const { items, warnings, sources } = buildCorpus(dir);
+  const hasLinkedInCsv = existsSync(join(dir, 'Shares.csv')) || existsSync(join(dir, 'Shares_0.csv'));
+  const useText = opts.adapter === 'text' || (!hasLinkedInCsv && opts.adapter !== 'linkedin');
+
+  const { items, warnings, sources } = useText
+    ? { ...buildTextCorpus(dir), sources: { adapter: 'text / markdown (.md, .txt)' } }
+    : buildCorpus(dir);
+
   writeFileSync(out('corpus.jsonl'), items.map((i) => JSON.stringify(i)).join('\n') + '\n');
   console.log(c.bold(`\nbuilt ${items.length} posts -> ${out('corpus.jsonl')}`));
-  for (const [k, v] of Object.entries(sources)) if (v) console.log(c.dim(`  ${k}: ${v}`));
+  for (const [k, v] of Object.entries(sources ?? {})) if (v) console.log(c.dim(`  ${k}: ${v}`));
   const withMetrics = items.filter((i) => i.has_metrics).length;
-  console.log(`  with outcome data: ${withMetrics}`);
+  if (withMetrics > 0) console.log(`  with outcome data: ${withMetrics}`);
   for (const w of warnings) console.log(c.yellow(`  ! ${w}`));
   return items;
 }
@@ -345,25 +370,66 @@ function dashboard(packId = 'linkedin-post') {
   console.log(c.yellow('  It embeds the full text of every post. Do not commit it.'));
 }
 
+// ---------------------------------------------------------------- audit
+
+async function audit(fileOrText, opts = {}) {
+  if (!fileOrText) {
+    throw new Error('usage: jev-writer audit <path/to/post.md|post.txt|-> [--pack <packId>] [--json] [--md]');
+  }
+  const packId = opts.pack ?? 'linkedin-post';
+  const pack = PACKS[packId];
+  if (!pack) throw new Error(`unknown pack "${packId}". Known: ${Object.keys(PACKS).join(', ')}`);
+
+  const res = await auditPost(fileOrText, { pack, reps: opts.reps ?? 1 });
+
+  if (opts.json) {
+    console.log(JSON.stringify(res, null, 2));
+  } else if (opts.md) {
+    console.log(formatAuditMarkdown(res, pack));
+  } else {
+    console.log(formatAuditTerminal(res, pack));
+  }
+}
+
 // ---------------------------------------------------------------- main
 
-const [cmd, arg] = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const cmd = rawArgs[0];
+const arg = rawArgs[1];
+
+const flags = {};
+for (let i = 2; i < rawArgs.length; i++) {
+  if (rawArgs[i] === '--json') flags.json = true;
+  else if (rawArgs[i] === '--md' || rawArgs[i] === '--markdown') flags.md = true;
+  else if (rawArgs[i] === '--pack' && rawArgs[i + 1]) { flags.pack = rawArgs[i + 1]; i++; }
+  else if (rawArgs[i] === '--adapter' && rawArgs[i + 1]) { flags.adapter = rawArgs[i + 1]; i++; }
+  else if (rawArgs[i] === '--reps' && rawArgs[i + 1]) { flags.reps = Number(rawArgs[i + 1]); i++; }
+}
+
 try {
   if (cmd === 'doctor') await doctor();
-  else if (cmd === 'build') build(arg);
-  else if (cmd === 'rate') await rate();
+  else if (cmd === 'audit') await audit(arg, flags);
+  else if (cmd === 'build') build(arg, flags);
+  else if (cmd === 'rate') await rate({ packId: flags.pack, reps: flags.reps });
   else if (cmd === 'analyze') analyze();
-  else if (cmd === 'dashboard') dashboard();
-  else if (cmd === 'run') { build(arg); await rate(); analyze(); dashboard(); }
+  else if (cmd === 'dashboard') dashboard(flags.pack);
+  else if (cmd === 'run') { build(arg, flags); await rate({ packId: flags.pack, reps: flags.reps }); analyze(); dashboard(flags.pack); }
   else {
     console.log(`jev-writer
 
-  doctor            check node, keys, packs, and make one live call
-  build <dir>       parse platform exports in <dir> into a corpus
-  rate              rate the corpus with the rubric pack
-  analyze           correlate ratings against outcomes, with a power gate
-  dashboard         render report.json as one self-contained HTML page
-  run <dir>         build, rate, analyze, dashboard
+  doctor                     check node, keys, packs, and make one live call
+  audit <file> [--pack <id>] pre-flight audit a single .md/.txt post against the rubric
+  build <dir>  [--adapter text|linkedin] parse exports or markdown files into a corpus
+  rate         [--pack <id>] rate the corpus with the rubric pack
+  analyze                    correlate ratings against outcomes, with a power gate
+  dashboard    [--pack <id>] render report.json as one self-contained HTML page
+  run <dir>                  build, rate, analyze, dashboard
+
+Available packs:
+  general-writing  - essays, articles, newsletters, and general blog posts (default for audit)
+  technical-blog   - engineering essays, architecture teardowns, benchmarks
+  technical-post   - short-form technical posts and threads (LinkedIn / X)
+  linkedin-post    - LinkedIn creator posts with viral feed mechanics (default for LinkedIn exports)
 
 Set exactly one of AI_GATEWAY_API_KEY, OPENROUTER_API_KEY, TYPESAFE_API_KEY.
 Output goes to ${OUT_DIR}/ (override with JEV_WRITER_OUT).`);

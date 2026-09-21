@@ -1,27 +1,26 @@
 ---
 name: jev-writer
 description: >
-  Analyse a person's published writing to find which qualities actually predict
-  engagement, then give them a dashboard and a personalised review prompt. Use
-  when someone wants to know why some of their posts do better than others, wants
-  their content audited or graded, asks what to change about their writing, or
-  wants a content-analytics dashboard built from their own data. Walks them
-  through exporting their data and getting an API key, runs the pipeline, and
-  refuses to report findings the sample cannot support. Analyses existing posts;
-  it does not write them.
+  Analyse published writing or pre-flight audit drafts to find which qualities
+  predict engagement or meet technical craft bars. Supports LinkedIn posts,
+  technical blogs, technical short-form posts/threads, and general essays.
+  Walks users through exports, API keys, and pre-flight reviews. Analyses
+  existing writing; it does not write or generate text.
 license: MIT
 ---
 
-# Analysing someone's writing against their real engagement
+# Analysing writing against real engagement and craft rubrics
 
-This skill turns "why do some of my posts work?" into an answer grounded in that
-person's own data. You will walk them through two downloads and one key, run a
-pipeline, and then help them read what comes out.
+This skill turns "why do some of my posts work?" and "is my technical writing
+rigorous and free of slop?" into answers grounded in real data and calibrated
+rubric evaluations. You can evaluate a whole corpus of published writing or
+run a fast pre-flight audit on an unpublished draft (`.md` or `.txt`).
 
 **The whole value is honesty.** A dozen tools already tell people their content
 is great. This one tells them when their sample is too small to know, when a
-rubric is broken, and when the thing they are proud of predicted nothing. Do not
-soften that. A flattering answer is a useless answer.
+rubric is broken, when a technical post lacks checkable proof artifacts, and
+when the thing they are proud of predicted nothing. Do not soften that. A
+flattering answer is a useless answer.
 
 ## What this cannot do
 
@@ -35,34 +34,22 @@ Say this early and plainly if the user seems to expect otherwise:
 - **It cannot establish causation.** Everything it finds is an association in
   one person's history, with unmeasured confounders.
 
-## Step 1. Identify their platform and get their data
+## Step 1. Select the content type and rubric pack
 
-Always start by asking the user which platform and identity/account they want to analyze:
-- **LinkedIn:** The primary fully supported adapter today.
-- **Medium, X / Twitter, Substack, YouTube, Reddit, Instagram / Threads:** Research and export paths are detailed in `references/platform-exports.md`.
+`jev-writer` ships with four calibrated rubric packs. Always identify which format the user is evaluating:
 
-Do not start rating anything until real data is in hand. For LinkedIn the user
-needs **both** of these, and they must be told the first one takes hours:
+| Format / Goal | Recommended Pack | Focus & Mechanics |
+| --- | --- | --- |
+| **LinkedIn creator post** | `linkedin-post` | Attention, ~210-character preview before cut, viral reach vs conversion, comments-vs-reactions, algorithmic down-ranking risks. |
+| **Technical short-form / thread** | `technical-post` | Short technical posts (LinkedIn/X): hook stopping power, proof artifacts in opening 3 lines, mechanism over adjectives, peer respect, tradeoff disclosure. |
+| **Technical blog / deep dive** | `technical-blog` | Long-form engineering essays, architecture teardowns, benchmarks, post-mortems: concrete system anchors, domain/physical constraints, checkable proof artifacts, executable decision procedures. |
+| **General essay / blog / newsletter** | `general-writing` | Platform-agnostic prose craft: thesis clarity, logical argument progression, information density, intellectual honesty, voice authenticity, anti-slop. |
 
-1. **The larger data archive.** Settings → Data Privacy → *Get a copy of your
-   data* → **"Download larger data archive"**. The basic archive contains no
-   `Shares_*.csv` at all, which is the single most common failure. This gives
-   post text, dates and URLs, and **no engagement data whatsoever**. The
-   `Reactions.csv` and `Comments.csv` inside it record what they did on *other
-   people's* posts.
-2. **Post analytics export.** Creator Mode on → Analytics & Tools → Post
-   analytics → **Export**. This is the only first-party surface with
-   impressions.
+For detailed question lists and design philosophy per pack, consult `references/packs.md`.
 
-Tell them to trigger the archive first, because everything else is blocked on it.
-Put both files, still zipped, in one directory (e.g. `./exports`).
-
-Never suggest scraping, browser automation against the platform, or third-party
-data vendors. The first-party route is free, complete enough, and does not risk
-their account.
-
-For other platforms (Medium, Substack, X, etc.), consult `references/platform-exports.md`. If a platform export contains post text but lacks per-post analytics (such as Medium), explain that the tool will provide qualitative rubric audits and voice diagnostics (Tier 1/Tier 2) rather than correlational claims.
-
+### Getting corpus data
+- **LinkedIn:** Requires both the larger data archive (`Shares_*.csv`) and the creator post analytics export (`.xlsx`). See `references/platform-exports.md`.
+- **Markdown / Text Archives (Blog posts, essays):** Put any directory of `.md` or `.txt` files into a folder (e.g. `./posts`). The text adapter automatically parses markdown headers, YAML frontmatter (`title:`, `date:`), and computes text features.
 
 ## Step 2. Get a key
 
@@ -70,51 +57,83 @@ Any one of three works, and the tool auto-detects which is present:
 
 | Provider | Env var | Notes |
 | --- | --- | --- |
-| Vercel AI Gateway | `AI_GATEWAY_API_KEY` | Easiest if they have a Vercel account |
-| OpenRouter | `OPENROUTER_API_KEY` | Easiest if they already use OpenRouter |
+| Vercel AI Gateway | `AI_GATEWAY_API_KEY` | Easiest if they have a Vercel account (`typesafe-ai/jev`) |
+| OpenRouter | `OPENROUTER_API_KEY` | Easiest if they already use OpenRouter (`typesafe/jev-latest`) |
 | TypeSafe direct | `TYPESAFE_API_KEY` | From console.typesafe.ai |
 
-Jev is priced at $0.042 per million input tokens with output free, so a few
-hundred posts costs cents. Check current pricing before a large run.
+Jev is priced at $0.042 per million input tokens with output free, so auditing a single post costs fractions of a cent, and a few hundred posts costs cents. Check current pricing before a large run.
 
 Never ask the user to paste a key into the chat. Have them set it in their
 environment or a local `.env`, then run `doctor`.
 
 Details per provider in `references/providers.md`.
 
-## Step 3. Run it
+## Step 3. Pre-flight audit a single draft or run the corpus pipeline
 
-The package is not published to npm. These are the invocations that work:
+### Option A: Pre-flight Audit a Single Post / Article
+
+Before publishing, evaluate a draft directly from a markdown file, text file, or stdin:
 
 ```bash
-npx github:Kaos599/jev-writer doctor          # node, key, pack validation, one live call
-npx github:Kaos599/jev-writer run ./exports   # build, rate, analyse, render
+# Audit an engineering blog post against the technical blog rubric
+node src/cli.mjs audit my-post.md --pack technical-blog
+
+# Audit a short-form post against the technical post rubric
+node src/cli.mjs audit snippet.md --pack technical-post
+
+# Audit a general article or essay
+node src/cli.mjs audit essay.md --pack general-writing
+
+# Output formatted Markdown scorecard (ideal for agent reviews or CI)
+node src/cli.mjs audit my-post.md --pack technical-blog --md
 ```
 
-Or from a clone, which is what you want if you plan to edit a rubric:
+This returns an honest, unvarnished pre-flight scorecard:
+- **Attention & Opening:** Hook strength, opening archetype, payoff delivery.
+- **Craft & Substance:** Specificity, checkable proof artifacts, mechanism explanation, information density.
+- **Anti-Slop Gates:** AI-generated feel, stock cliches, peer respect, failure-framing detection.
+- **Most Needed Improvement:** The single highest-leverage dimension to fix before publishing.
+
+### Option B: Run Corpus Analysis Across Historical Posts
+
+The package is not published to npm. These invocations work from a clone or npx:
 
 ```bash
-git clone https://github.com/Kaos599/jev-writer && cd jev-writer
-npm install
+# Verify environment, keys, and packs
 node src/cli.mjs doctor
-node src/cli.mjs run ./exports
-```
 
-`npx jev-writer` on its own does not resolve. Do not write it.
+# Build corpus from a directory of markdown files or LinkedIn exports
+node src/cli.mjs build ./posts --adapter text
+# Or for LinkedIn exports:
+node src/cli.mjs build ./exports --adapter linkedin
+
+# Rate the corpus with the selected pack
+node src/cli.mjs rate --pack technical-blog
+
+# Correlate against outcomes with power gate
+node src/cli.mjs analyze
+
+# Render self-contained HTML dashboard
+node src/cli.mjs dashboard --pack technical-blog
+
+# Or run end-to-end:
+node src/cli.mjs run ./posts --adapter text --pack technical-blog
+```
 
 `doctor` first, always. It catches a missing key, an `ai` package too old for
-the Gateway path, and a broken rubric before a full run spends anything.
+the Gateway path, and any invalid pack before spending calls.
 
 ### The commands
 
 | Command | What it does |
 | --- | --- |
 | `doctor` | check Node, keys, every pack; make one live call |
-| `build <dir>` | parse the exports in `<dir>` into `corpus.jsonl` |
-| `rate` | rate the corpus, resumable after an interruption |
+| `audit <file> [--pack <id>]` | pre-flight audit a single post/article against a rubric pack |
+| `build <dir> [--adapter text\|linkedin]` | parse exports or markdown files into `corpus.jsonl` |
+| `rate [--pack <id>]` | rate the corpus, resumable after an interruption |
 | `analyze` | correlate against outcomes, write `report.json` |
-| `dashboard` | render `report.json` to `dashboard.html` |
-| `run <dir>` | build, rate, analyze, dashboard, in order |
+| `dashboard [--pack <id>]` | render `report.json` to `dashboard.html` |
+| `run <dir> [--adapter ..] [--pack ..]` | build, rate, analyze, dashboard, in order |
 
 Everything lands in `jev-out/`, overridable with the `JEV_WRITER_OUT`
 environment variable: `corpus.jsonl`, `ratings.jsonl`, `report.json`,

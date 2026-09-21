@@ -1,8 +1,15 @@
 # Writing and customising rubric packs
 
 A pack is a versioned set of typed questions plus the state fields each question
-is allowed to see. The LinkedIn pack ships in the box; packs for newsletters,
-video titles, documentation or cold email are ordinary user-space files.
+is allowed to see. `jev-writer` ships with four calibrated packs:
+- `linkedin-post`: LinkedIn creator content with viral feed mechanics
+- `technical-post`: Short-form technical posts and threads (LinkedIn / X)
+- `technical-blog`: Deep engineering essays, benchmarks, and architecture teardowns
+- `general-writing`: General blog posts, essays, newsletters, and articles
+
+For detailed specifications of the shipped packs, see `references/packs.md`.
+Custom packs for documentation, cold email, or customer stories can be authored using
+the primitives below.
 
 The format lives in `src/rubrics/pack.mjs` in the repo. From outside the package
 it is imported as `jev-writer/rubrics/pack.mjs`; deep paths into `src/` do not

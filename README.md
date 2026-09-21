@@ -7,7 +7,7 @@
 [![CI](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml/badge.svg)](https://github.com/Kaos599/jev-writer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-83%20passing-brightgreen.svg)](test/)
 
 </div>
 
@@ -89,18 +89,58 @@ Who this is for: people publishing regularly enough to have 25 or more posts wit
 | | |
 |---|---|
 | **Calibrated judgments** | Ratings come from [Jev](https://typesafe.ai), a System One model returning probability distributions over levels you define, not generated text parsed into a number. |
+| **Pre-flight Audit Tool** | Instantly audit any unpublished `.md` or `.txt` draft or piped input via `jev-writer audit <file> [--pack <id>]` before publishing. |
+| **Four Rubric Packs** | Calibrated packs for `linkedin-post`, `technical-post`, `technical-blog`, and `general-writing`. |
+| **General Text Adapter** | Ingest arbitrary markdown or text directories with YAML frontmatter, headers, and code blocks (`jev-writer build ./posts --adapter text`). |
 | **Pre-registration** | Every question is tagged `primary` or `exploratory` in a file that lives in git, so the commit timestamp proves the commitment preceded the result. |
 | **Power gate** | Under 25 posts with outcome data, correlations are refused outright. Between 25 and 60 the tool reports the smallest effect your sample can detect. |
-| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. The family size is the number of tests actually performed, and the same number is what the tool reports to you. |
+| **False-discovery correction** | Benjamini-Hochberg across every test run, not just the ones that looked good. The family size is the number of tests actually performed. |
 | **Confound control** | Every result is re-tested as a partial correlation controlling for publication date, and the correction runs on the controlled p-value. |
-| **Direction of merit** | Each dimension declares `higher_is_better`, `lower_is_better`, or `neutral`, so a low score where low is good paints green. 13, 7 and 4 of them respectively in the shipped pack. |
-| **Code features compete** | Character count, emoji, hashtags, sentence length and posting cadence are computed exactly and ranked against the model's judgments in the `analyze` table. If raw length beats your rubric, you find out. |
+| **Direction of merit** | Each dimension declares `higher_is_better`, `lower_is_better`, or `neutral`, so a low score where low is good paints green. |
+| **Code features compete** | Character count, emoji, hashtags, sentence length, and posting cadence are computed exactly and ranked against the model's judgments in the `analyze` table. |
 | **Self-contained dashboard** | One HTML file, no CDN, no build step, no network. Opens over `file://`. |
 | **Generated writing prompt** | A paste-ready review prompt derived from your own validated findings. |
-| **Portable rubric packs** | One pack, three provider dialects, translated at the boundary. |
-| **Zero-dependency parsing** | CSV, ZIP and XLSX readers are written against the stdlib. The only runtime dependency is `ai`. |
-| **Agent skill included** | A skill for Claude Code, Codex and similar, with five reference files. |
-| **67 tests** | `node --test`, no assertion library, no network. |
+| **Portable rubric packs** | One pack, three provider dialects (AI Gateway, OpenRouter, TypeSafe direct), translated at the boundary. |
+| **Zero-dependency parsing** | CSV, ZIP, XLSX, and Markdown parsers written against the stdlib. The only runtime dependency is `ai`. |
+| **Agent skill included** | A companion skill for Claude Code, Codex, and agentic workflows with deep reference playbooks. |
+| **83 tests** | Comprehensive unit test suite with `node:test`, zero third-party testing frameworks. |
+
+---
+
+## Shipped Rubric Packs
+
+`jev-writer` includes four calibrated rubric packs for different writing surfaces and technical depths:
+
+### 1. `technical-blog` — Engineering Blogs & Architecture Teardowns
+Distilled from the `technical-content-writer` skill and leading publications (Tailscale, Fly.io, Dan Luu, Julia Evans):
+- **Systems Anchoring:** Firmly grounded in real systems, production incidents, benchmark runs, or PRs.
+- **Physical & Domain Constraints:** Respects hardware, CPU cache hierarchies, memory bandwidth, network roundtrips, and protocol limits.
+- **Checkable Proof Artifacts:** Claims backed by exact benchmark metrics, flame graphs, RFC citations, or configs.
+- **Mechanism Over Adjectives:** Explains *how and why* systems behave rather than using hype words ("blazing fast").
+- **Tradeoff Transparency:** Transparently discloses what is sacrificed (throughput vs latency, simplicity vs speed).
+- **Executable Decision Procedures:** Concludes with an actionable condition $\rightarrow$ choice mapping or diagnostic rule of thumb.
+- **Peer Respect:** Zero condescension toward other developers; the domain constraint is the sole antagonist.
+
+### 2. `technical-post` — Short-Form Engineering Posts & Threads
+Engineered for technical creators on LinkedIn and X / Twitter:
+- **Hook Stopping Power:** Intense technical intrigue and domain tension in opening lines.
+- **Proof in Hook:** Requires a concrete metric, trace, or error code within the first 3 lines.
+- **Mechanism in Compact Space:** Concise explanations under character/fold limits without sacrificing causal depth.
+- **Anti-Slop Technical Integrity:** Strips synthetic balanced tricolons, corporate hype, and engagement begging.
+
+### 3. `general-writing` — Essays, Newsletters & Long-Form Articles
+Platform-agnostic evaluation of prose craft and intellectual substance:
+- **Thesis Clarity:** Clear, defensible central spine versus wandering thoughts.
+- **Logical Progression:** Cumulative paragraph flow and seamless argument transitions.
+- **Information Density:** High insight-to-word ratio without synthetic filler.
+- **Intellectual Honesty:** Thoughtful engagement with counter-arguments and boundary conditions.
+- **Voice Authenticity:** Irreplaceable personal perspective versus generic corporate smoothing.
+
+### 4. `linkedin-post` — Viral Feed Creator Content
+Optimized for the specific mechanics of LinkedIn's mobile and desktop feeds:
+- **Preview Truncation:** Evaluates the ~210 characters shown before the "see more" cut.
+- **Reach vs Conversion:** Distinguishes feed distribution (`reach_rate`) from writing effectiveness (`conversion_rate`).
+- **Social Dynamics:** Evaluates comment provocation, ending types, and algorithmic penalty risks.
 
 ## Getting started
 
@@ -166,12 +206,28 @@ open jev-out/dashboard.html
 
 | Command | What it does |
 |---|---|
-| `doctor` | check Node, keys, packs; one live call |
-| `build <dir>` | parse exports into `corpus.jsonl` |
-| `rate` | rate the corpus, resumable |
-| `analyze` | correlate against outcomes, write `report.json` |
-| `dashboard` | render `report.json` to `dashboard.html` |
-| `run <dir>` | build, rate, analyze, dashboard |
+| `doctor` | check Node, keys, and validate every rubric pack; make one live call |
+| `audit <file> [--pack <id>]` | pre-flight audit a single `.md` or `.txt` draft against a rubric pack (`--md` for Markdown scorecard, `--json` for raw output) |
+| `build <dir> [--adapter text\|linkedin]` | parse exports or a directory of markdown files into `corpus.jsonl` |
+| `rate [--pack <id>]` | rate the corpus with the selected pack, resumable after interruption |
+| `analyze` | correlate ratings against outcomes, run power gate and FDR correction, write `report.json` |
+| `dashboard [--pack <id>]` | render `report.json` as one self-contained, interactive HTML dashboard |
+| `run <dir> [--adapter ..] [--pack ..]` | build, rate, analyze, and dashboard in a single command |
+
+#### Pre-Flight Audit Example
+
+Audit a draft article before publishing to catch slop, missing proof artifacts, or weak openings:
+
+```bash
+# Audit an engineering article against the technical blog rubric
+node src/cli.mjs audit draft.md --pack technical-blog
+
+# Audit a short-form post against the technical post rubric
+node src/cli.mjs audit tweet.md --pack technical-post
+
+# Output a clean Markdown report
+node src/cli.mjs audit essay.md --pack general-writing --md
+```
 
 ## What problem this solves
 
